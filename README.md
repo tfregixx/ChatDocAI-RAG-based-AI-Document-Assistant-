@@ -17,7 +17,7 @@ ChatDocAI is a **GenAI-powered document assistant built using RAG (Retrieval-Aug
 Users struggle to extract relevant information from large documents efficiently.
 
 ## Solution
-ChatDocAI is an AI-powered assistant using a Retrieval-Augmented Generation (RAG) pipeline to answer questions from uploaded documents with high accuracy.
+ChatDocAI implements a **Retrieval-Augmented Generation (RAG)** pipeline that retrieves relevant document context using embeddings and generates accurate responses using LLMs.
 
 ## Impact
 - Improved answer relevance compared to keyword-based search
@@ -96,8 +96,7 @@ flowchart TD
 
 ## 🎥 Demo
 
-<video src="https://raw.githubusercontent.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/main/demo.webm" controls width="700"></video>
- 
+
 [▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
 
 
