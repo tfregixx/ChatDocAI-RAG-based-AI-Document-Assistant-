@@ -94,6 +94,42 @@ flowchart TD
 ```
 ---
 
+## 🎥 Demo
+
+<video src="https://raw.githubusercontent.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/main/demo.webm" controls width="700"></video>
+ 
+[▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
+
+
+- Upload document  
+- Ask query  
+- Get AI answer  
+
+---
+
+## 🖼️ Screenshots
+
+### 📂 Upload Documents
+> Upload PDFs and start querying instantly  
+
+![Upload UI](assets/upload.png)
+
+---
+
+### 💬 Chat Interface
+> Ask questions and get AI-powered answers  
+
+![Chat UI](assets/chat.png)
+
+---
+
+### 🤖 AI Generated Response
+> Context-aware answers with document grounding  
+
+![AI Output](assets/response.png)
+
+---
+
 ## Installation
 
 1. Clone the repository:
@@ -142,41 +178,6 @@ http://localhost:8501
 - ✅ Source-grounded responses  
 - ✅ Semantic retrieval using embeddings  
 
----
-
-## 🎥 Demo
-
-<video src="https://raw.githubusercontent.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/main/demo.webm" controls width="700"></video>
- 
-[▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
-
-
-- Upload document  
-- Ask query  
-- Get AI answer  
-
----
-
-## 🖼️ Screenshots
-
-### 📂 Upload Documents
-> Upload PDFs and start querying instantly
-
-![Upload](assets/upload.png)
-
----
-
-### 💬 Chat with Documents
-> Ask questions and get AI-powered answers
-
-![Chat](assets/chat.png)
-
----
-
-### 🤖 Generated Response
-> Context-aware answers with sources
-
-![Response](assets/response.png)
 ---
 
 ## 📈 Results
