@@ -10,6 +10,7 @@
 </p>
 
 ChatDocAI is a **GenAI-powered document assistant built using RAG (Retrieval-Augmented Generation)** that allows users to query documents with **LLM-backed, context-aware answers**.
+🚀 Built with RAG + LLMs to deliver accurate, context-aware answers from user documents.
 
 ---
 
@@ -100,9 +101,7 @@ flowchart TD
 [▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
 
 
-- Upload document  
-- Ask query  
-- Get AI answer  
+✨ Upload documents → Ask questions → Get AI-powered answers  
 
 ---
 
