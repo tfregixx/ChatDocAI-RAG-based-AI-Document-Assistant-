@@ -62,6 +62,26 @@ Ensure the following are installed:
 
 ---
 
+## 🧠 Architecture
+
+```mermaid
+flowchart TD
+
+    A[Upload Documents] --> B[Text Chunking]
+    B --> C[Create Embeddings]
+    C --> D[ChromaDB Vector Store]
+
+    E[User Query] --> F[Semantic Retrieval]
+    F --> D
+    F --> G[Relevant Context]
+
+    G --> H[AI Model - Ollama or HuggingFace]
+    H --> I[Generated Answer]
+
+    I --> J[Chat Response with Sources]
+```
+---
+
 ## Installation
 
 1. Clone the repository:
@@ -71,13 +91,13 @@ cd ChatDOC-AI
 ```
 
 2. Install dependencies:
-
-ShellShow more lines
-
+```bash
+pip install -r requirements.txt
+```
 3. Run the application:
-
-ShellShow more lines
-
+```bash
+streamlit run app.py
+```
 4. Open in browser:
 
 http://localhost:8501
@@ -86,31 +106,31 @@ http://localhost:8501
 
 ## How It Works
 
-User uploads documents
-Text is chunked
-Converted to embeddings
-Stored in ChromaDB
-User asks a query
-System retrieves relevant content
-AI generates response
+- User uploads documents
+- Text is chunked
+- Converted to embeddings
+- Stored in ChromaDB
+- User asks a query
+- System retrieves relevant content
+- AI generates response
 
 ---
 
 ## Example Use Cases
 
-Study assistant
-Document search engine
-Knowledge base chatbot
-Quiz generator
+- Study assistant
+- Document search engine
+- Knowledge base chatbot
+- Quiz generator
 
 ---
 
 ## Future Enhancements
 
-🎤 Voice assistant (RegiBot speaking)
-📄 PDF highlighting
-💬 Chat history sidebar
-🌐 Web deployment
+- 🎤 Voice assistant (RegiBot speaking)
+- 📄 PDF highlighting
+- 💬 Chat history sidebar
+- 🌐 Web deployment
 
 ---
 
@@ -118,10 +138,10 @@ Quiz generator
 
 Contributions are welcome!
 
-Fork the repository
-Create a branch
-Make changes
-Submit a pull request
+- Fork the repository
+- Create a branch
+- Make changes
+- Submit a pull request
 
 ---
 
