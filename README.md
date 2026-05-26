@@ -159,19 +159,24 @@ http://localhost:8501
 
 ## 🖼️ Screenshots
 
-### 📂 Document Upload Interface
-![Upload](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/upload.png)
+### 📂 Upload Documents
+> Upload PDFs and start querying instantly
+
+![Upload](assets/upload.png)
 
 ---
 
-### 💬 Chat Interface
-![Chat UI](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/chat.png)
+### 💬 Chat with Documents
+> Ask questions and get AI-powered answers
+
+![Chat](assets/chat.png)
 
 ---
 
-### 🤖 AI Response Output
-![Response](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/response.png)
+### 🤖 Generated Response
+> Context-aware answers with sources
 
+![Response](assets/response.png)
 ---
 
 ## 📈 Results
