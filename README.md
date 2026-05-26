@@ -148,8 +148,7 @@ http://localhost:8501
 ## 🎥 Demo
 
 <video src="https://raw.githubusercontent.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/main/demo.webm" controls width="700"></video>
-
-👉 If video does not load, click here:  
+ 
 [▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
 
 
