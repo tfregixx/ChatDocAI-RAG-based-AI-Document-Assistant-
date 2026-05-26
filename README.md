@@ -1,4 +1,4 @@
-# 🤖 ChatDOC AI – RegiBot Smart Document Assistant
+# 🤖 ChatDocAI – GenAI Document Assistant (RAG | LLM | LangChain)
 
 <p align="center">
   <img src="https://img.shields.io/badge/AI-LangChain-blue?style=for-the-badge"/>
@@ -9,8 +9,20 @@
   <img src="https://img.shields.io/badge/Language-Multilingual-red?style=for-the-badge"/>
 </p>
 
-ChatDOC AI is an intelligent document-based assistant that allows users to upload, search, and interact with their files using natural conversation.  
-The system combines Retrieval-Augmented Generation (RAG) with modern AI technologies to provide accurate, context-aware answers, along with advanced features such as multilingual support, quiz generation, and an animated assistant called RegiBot.
+ChatDocAI is a **GenAI-powered document assistant built using RAG (Retrieval-Augmented Generation)** that allows users to query documents with **LLM-backed, context-aware answers**.
+
+---
+
+## Problem
+Users struggle to extract relevant information from large documents efficiently.
+
+## Solution
+ChatDocAI is an AI-powered assistant using a Retrieval-Augmented Generation (RAG) pipeline to answer questions from uploaded documents with high accuracy.
+
+## Impact
+- Improved answer relevance compared to keyword-based search
+- Enabled contextual, document-grounded responses
+- Fully offline capability using local LLMs
 
 ---
 
@@ -103,56 +115,80 @@ streamlit run app.py
 http://localhost:8501
 
 ---
+---
 
-## How It Works
+## 📊 Key Insights
 
-- User uploads documents
-- Text is chunked
-- Converted to embeddings
-- Stored in ChromaDB
-- User asks a query
-- System retrieves relevant content
-- AI generates response
+- **✅ RAG enables context-aware document understanding**
+- **✅ Semantic search improves retrieval accuracy**
+- **✅ LLM responses are grounded using vector-based context**
+- **✅ Local LLMs enable privacy-focused AI systems**
 
 ---
 
-## Example Use Cases
+## 🏗️ System Workflow
 
-- Study assistant
-- Document search engine
-- Knowledge base chatbot
-- Quiz generator
-
----
-
-## Future Enhancements
-
-- 🎤 Voice assistant (RegiBot speaking)
-- 📄 PDF highlighting
-- 💬 Chat history sidebar
-- 🌐 Web deployment
+- **📄 Document ingestion & chunking**
+- **🧠 Embedding generation (HuggingFace)**
+- **📊 Storage in ChromaDB (vector DB)**
+- **🔍 Semantic retrieval (Top-K search)**
+- **🤖 Response generation using LLM (Ollama)**
 
 ---
 
-## Contributing
+## 🧠 Advanced Capabilities
 
-Contributions are welcome!
-
-- Fork the repository
-- Create a branch
-- Make changes
-- Submit a pull request
+- ✅ RAG pipeline from scratch  
+- ✅ Hybrid mode (online + offline LLMs)  
+- ✅ Source-grounded responses  
+- ✅ Semantic retrieval using embeddings  
 
 ---
 
-## License (MIT)
+## 🎥 Demo
 
-MIT License
-Copyright (c) 2026 Preethi Regina S D
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+<video src="https://raw.githubusercontent.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/main/demo.webm" controls width="700"></video>
+
+👉 If video does not load, click here:  
+[▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
+
+
+- Upload document  
+- Ask query  
+- Get AI answer  
 
 ---
-## Author
 
-Preethi Regina S D
+## 📈 Results
+
+- **✅ Improved answer relevance vs keyword search**
+- **✅ Reduced hallucination using RAG**
+- **✅ Efficient querying of large documents**
+
+---
+
+## 🔮 Future Work
+
+- **🔥 Agentic workflows (multi-step reasoning)**
+- **📊 Automated evaluation metrics**
+- **🧠 Multi-document reasoning**
+- **🎨 Improved UI and UX**
+
+---
+
+## 💡 Learnings
+
+- **Built full RAG pipeline from scratch**
+- **Worked with LLMs, embeddings, vector DB**
+- **Designed real-world AI system architecture**
+
+---
+
+## 📌 Author
+
+**Preethi Regina**  
+AI Engineer | GenAI & RAG Developer  
+[LinkedIn](https://www.linkedin.com/in/regina2022/)  
+
+---
+
