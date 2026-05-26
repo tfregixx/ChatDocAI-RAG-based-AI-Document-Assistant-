@@ -115,7 +115,6 @@ streamlit run app.py
 http://localhost:8501
 
 ---
----
 
 ## 📊 Key Insights
 
@@ -155,6 +154,23 @@ http://localhost:8501
 - Upload document  
 - Ask query  
 - Get AI answer  
+
+---
+
+## 🖼️ Screenshots
+
+### 📂 Document Upload Interface
+![Upload](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/upload.png)
+
+---
+
+### 💬 Chat Interface
+![Chat UI](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/chat.png)
+
+---
+
+### 🤖 AI Response Output
+![Response](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/assets/response.png)
 
 ---
 
