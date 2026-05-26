@@ -112,21 +112,21 @@ flowchart TD
 ### 📂 Upload Documents
 > Upload PDFs and start querying instantly  
 
-![Upload UI](assets/upload.png)
+![Upload UI](upload.png)
 
 ---
 
 ### 💬 Chat Interface
 > Ask questions and get AI-powered answers  
 
-![Chat UI](assets/chat.png)
+![Chat UI](chat.png)
 
 ---
 
 ### 🤖 AI Generated Response
 > Context-aware answers with document grounding  
 
-![AI Output](assets/response.png)
+![AI Output](response.png)
 
 ---
 
