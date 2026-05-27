@@ -1,19 +1,19 @@
 import streamlit as st
 import tempfile
 
-# ✅ Updated LangChain imports (LATEST STANDARD)
+# ✅ Updated LangChain imports (LATEST)
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from langchain_openai import ChatOpenAI
-from langchain.chains import RetrievalQA
+from langchain.chains.retrieval_qa.base import RetrievalQA
 
 from langchain.agents import initialize_agent, Tool
 
 # =======================
-# 🔹 LOAD LLM
+# 🔹 LOAD LLM (OPENAI)
 # =======================
 llm = ChatOpenAI(
     temperature=0,
@@ -54,6 +54,7 @@ def create_rag(vectordb):
         llm=llm,
         retriever=retriever
     )
+
     return qa_chain
 
 # =======================
@@ -69,12 +70,12 @@ tools = [
     Tool(
         name="Summarizer",
         func=summarize_tool,
-        description="Use this to summarize document"
+        description="Use this tool to summarize content"
     ),
     Tool(
         name="QuizGenerator",
         func=quiz_tool,
-        description="Use this to generate quiz questions"
+        description="Use this tool to generate quiz questions"
     )
 ]
 
@@ -91,29 +92,28 @@ agent = initialize_agent(
 def run_agent(query, context):
     prompt = f"""
     User Query: {query}
-    
+
     Context:
     {context}
-    
-    Decide the task and respond accordingly.
+
+    Decide the task and generate final response.
     """
     return agent.run(prompt)
 
 # =======================
-# 🔹 STREAMLIT UI
+# 🔹 UI
 # =======================
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.title("🤖 ChatDocAI – RAG + Agentic AI")
-st.markdown("🚀 GenAI document assistant with **LLM + RAG + Agent reasoning**")
+st.markdown("🚀 GenAI system using **LLM + RAG + Agent reasoning**")
 
 # Example queries
 st.markdown("### 💡 Try asking:")
 st.write("- Summarize the document")
 st.write("- Generate quiz questions")
-st.write("- Explain key concepts")
+st.write("- Explain key topics")
 
-# Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
 
 if uploaded_file:
@@ -126,17 +126,14 @@ if uploaded_file:
 
     if query:
         with st.spinner("Processing document and generating response... 🤖"):
-
             # Step 1: RAG
             rag_output = qa_chain.run(query)
 
             # Step 2: Agent
             final_answer = run_agent(query, rag_output)
 
-        # Show answer
         st.subheader("🧠 Final Answer")
         st.markdown(final_answer)
 
-        # Show context
         with st.expander("📄 Retrieved Context"):
             st.write(rag_output)
