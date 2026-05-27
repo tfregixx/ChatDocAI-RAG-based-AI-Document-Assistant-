@@ -3,5 +3,5 @@ langchain
 chromadb
 sentence-transformers
 pypdf
+openai
 tiktoken
-ollama
