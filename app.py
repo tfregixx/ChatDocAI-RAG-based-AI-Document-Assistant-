@@ -42,14 +42,15 @@ def process_document(uploaded_file):
 def get_context(vectordb, query):
     retriever = vectordb.as_retriever()
     docs = retriever.get_relevant_documents(query)
+
     return "\n".join([doc.page_content for doc in docs])
 
 # =======================
-# 🔹 MAIN RESPONSE (AGENT SIMULATION)
+# 🔹 RESPONSE GENERATION
 # =======================
 def generate_answer(query, context):
     prompt = f"""
-    You are an AI assistant.
+    You are an intelligent AI assistant.
 
     User Query: {query}
 
@@ -57,47 +58,102 @@ def generate_answer(query, context):
     {context}
 
     Instructions:
-    - If user asks to summarize → give summary
-    - If user asks for quiz/questions → generate questions
-    - Otherwise answer clearly using context
+    - If asked to summarize → provide concise summary
+    - If asked for quiz → generate questions
+    - Else → explain clearly using context
 
     Final Answer:
     """
     return llm.invoke(prompt).content
 
 # =======================
-# 🔹 UI
+# 🔹 UI (STARTUP STYLE)
 # =======================
+
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-st.title("🤖 ChatDocAI – RAG System")
-st.markdown("🚀 AI document assistant using **LLM + semantic search**")
+# ✅ Animation CSS
+st.markdown(
+    """
+    <style>
+    .stChatMessage {animation: fadeIn 0.4s ease-in;}
+    @keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-st.markdown("### 💡 Try asking:")
-st.write("- Summarize the document")
-st.write("- Generate quiz questions")
-st.write("- Explain key concepts")
+# ✅ Sidebar
+st.sidebar.title("🤖 ChatDocAI")
+st.sidebar.markdown("AI Document Assistant")
+st.sidebar.markdown("---")
 
-uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
+st.sidebar.markdown("### 💡 Examples")
+st.sidebar.write("• Summarize document")
+st.sidebar.write("• Generate quiz")
+st.sidebar.write("• Explain concepts")
 
+st.sidebar.markdown("---")
+st.sidebar.info("RAG + LLM + Reasoning AI")
+
+# ✅ Title
+st.markdown(
+    """
+    <h1 style='text-align:center;'>🤖 ChatDocAI</h1>
+    <p style='text-align:center;color:gray;'>
+    AI-powered document assistant
+    </p>
+    """,
+    unsafe_allow_html=True
+)
+
+# ✅ Upload Section
+st.markdown("### 📂 Upload Document")
+uploaded_file = st.file_uploader("Upload PDF", type="pdf")
+
+# ✅ Chat Memory
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# ✅ Show chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# ✅ Main Logic
 if uploaded_file:
-    st.success("✅ File uploaded!")
-
     vectordb = process_document(uploaded_file)
+    st.success("✅ Document processed!")
 
-    query = st.text_input("💬 Ask your question")
+    user_input = st.chat_input("Ask something about your document...")
 
-    if query:
-        with st.spinner("Processing... 🤖"):
+    if user_input:
 
-            # Step 1: Retrieve
-            context = get_context(vectordb, query)
+        # Save user message
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_input
+        })
 
-            # Step 2: Generate response
-            final_answer = generate_answer(query, context)
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
-        st.subheader("🧠 Final Answer")
-        st.markdown(final_answer)
+        # Assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking... 🤖"):
 
+                context = get_context(vectordb, user_input)
+                response = generate_answer(user_input, context)
+
+                st.markdown(response)
+
+                # Save response
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
+
+        # Context display
         with st.expander("📄 Retrieved Context"):
             st.write(context)
+``
