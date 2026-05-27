@@ -7,7 +7,6 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from langchain_openai import ChatOpenAI
-from langchain.agents import initialize_agent, Tool
 
 # =======================
 # 🔹 LLM
@@ -33,73 +32,46 @@ def process_document(uploaded_file):
     docs = splitter.split_documents(documents)
 
     embeddings = HuggingFaceEmbeddings()
-
     vectordb = Chroma.from_documents(docs, embeddings)
 
     return vectordb
 
 # =======================
-# 🔹 RETRIEVAL FUNCTION (REPLACING RetrievalQA)
+# 🔹 RETRIEVAL
 # =======================
 def get_context(vectordb, query):
     retriever = vectordb.as_retriever()
     docs = retriever.get_relevant_documents(query)
-
-    context = "\n".join([doc.page_content for doc in docs])
-
-    return context
+    return "\n".join([doc.page_content for doc in docs])
 
 # =======================
-# 🔹 AGENT TOOLS
+# 🔹 MAIN RESPONSE (AGENT SIMULATION)
 # =======================
-def summarize_tool(text):
-    return f"📘 Summary:\n{text[:300]}..."
+def generate_answer(query, context):
+    prompt = f"""
+    You are an AI assistant.
 
-def quiz_tool(text):
-    return "🧠 Quiz:\n1. What is the main idea?\n2. Explain key concepts."
-
-tools = [
-    Tool(
-        name="Summarizer",
-        func=summarize_tool,
-        description="Use to summarize content"
-    ),
-    Tool(
-        name="QuizGenerator",
-        func=quiz_tool,
-        description="Use to generate quiz questions"
-    )
-]
-
-# =======================
-# 🔹 AGENT
-# =======================
-agent = initialize_agent(
-    tools,
-    llm,
-    agent="zero-shot-react-description",
-    verbose=False
-)
-
-def run_agent(query, context):
-    full_prompt = f"""
     User Query: {query}
 
     Context:
     {context}
 
-    Perform the task and generate final answer.
-    """
+    Instructions:
+    - If user asks to summarize → give summary
+    - If user asks for quiz/questions → generate questions
+    - Otherwise answer clearly using context
 
-    return agent.run(full_prompt)
+    Final Answer:
+    """
+    return llm.invoke(prompt).content
 
 # =======================
-# 🔹 STREAMLIT UI
+# 🔹 UI
 # =======================
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-st.title("🤖 ChatDocAI – RAG + Agentic AI")
-st.markdown("🚀 GenAI system using **LLM + Retrieval + Agent reasoning**")
+st.title("🤖 ChatDocAI – RAG System")
+st.markdown("🚀 AI document assistant using **LLM + semantic search**")
 
 st.markdown("### 💡 Try asking:")
 st.write("- Summarize the document")
@@ -118,11 +90,11 @@ if uploaded_file:
     if query:
         with st.spinner("Processing... 🤖"):
 
-            # ✅ Step 1: Retrieve context (RAG)
+            # Step 1: Retrieve
             context = get_context(vectordb, query)
 
-            # ✅ Step 2: Agent reasoning
-            final_answer = run_agent(query, context)
+            # Step 2: Generate response
+            final_answer = generate_answer(query, context)
 
         st.subheader("🧠 Final Answer")
         st.markdown(final_answer)
