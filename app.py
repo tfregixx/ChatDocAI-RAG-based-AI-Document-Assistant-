@@ -1,21 +1,23 @@
 import streamlit as st
 import tempfile
 
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.chat_models import ChatOpenAI
+# ✅ Updated LangChain imports (LATEST STANDARD)
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+
+from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 
 from langchain.agents import initialize_agent, Tool
 
 # =======================
-# 🔹 LOAD LLM (OPENAI)
+# 🔹 LOAD LLM
 # =======================
 llm = ChatOpenAI(
     temperature=0,
-    openai_api_key=st.secrets["OPENAI_API_KEY"],
+    api_key=st.secrets["OPENAI_API_KEY"],
     model="gpt-3.5-turbo"
 )
 
@@ -23,17 +25,21 @@ llm = ChatOpenAI(
 # 🔹 PROCESS DOCUMENT
 # =======================
 def process_document(uploaded_file):
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_file.write(uploaded_file.read())
-        file_path = tmp_file.name
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(uploaded_file.read())
+        file_path = tmp.name
 
     loader = PyPDFLoader(file_path)
     documents = loader.load()
 
-    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    splitter = CharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
     docs = splitter.split_documents(documents)
 
     embeddings = HuggingFaceEmbeddings()
+
     vectordb = Chroma.from_documents(docs, embeddings)
 
     return vectordb
@@ -54,26 +60,26 @@ def create_rag(vectordb):
 # 🔹 AGENT TOOLS
 # =======================
 def summarize_tool(text):
-    return f"### 📘 Summary\n{text[:300]}..."
+    return f"📘 Summary:\n{text[:300]}..."
 
 def quiz_tool(text):
-    return "### 🧠 Quiz\n1. What is the main idea?\n2. Explain key concepts."
+    return "🧠 Quiz:\n1. What is the main idea?\n2. Explain key concepts."
 
 tools = [
     Tool(
         name="Summarizer",
         func=summarize_tool,
-        description="Use this tool when user asks to summarize content"
+        description="Use this to summarize document"
     ),
     Tool(
         name="QuizGenerator",
         func=quiz_tool,
-        description="Use this tool when user asks to generate quiz or questions"
+        description="Use this to generate quiz questions"
     )
 ]
 
 # =======================
-# 🔹 CREATE AGENT
+# 🔹 AGENT
 # =======================
 agent = initialize_agent(
     tools,
@@ -85,11 +91,11 @@ agent = initialize_agent(
 def run_agent(query, context):
     prompt = f"""
     User Query: {query}
-
+    
     Context:
     {context}
-
-    Decide the steps and generate the final response.
+    
+    Decide the task and respond accordingly.
     """
     return agent.run(prompt)
 
@@ -99,17 +105,19 @@ def run_agent(query, context):
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.title("🤖 ChatDocAI – RAG + Agentic AI")
-st.markdown("🚀 AI-powered document assistant using **RAG + LLM + Agent reasoning**")
+st.markdown("🚀 GenAI document assistant with **LLM + RAG + Agent reasoning**")
 
+# Example queries
 st.markdown("### 💡 Try asking:")
 st.write("- Summarize the document")
 st.write("- Generate quiz questions")
 st.write("- Explain key concepts")
 
+# Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
 
 if uploaded_file:
-    st.success("✅ File uploaded successfully!")
+    st.success("✅ File uploaded!")
 
     vectordb = process_document(uploaded_file)
     qa_chain = create_rag(vectordb)
@@ -118,16 +126,17 @@ if uploaded_file:
 
     if query:
         with st.spinner("Processing document and generating response... 🤖"):
+
             # Step 1: RAG
             rag_output = qa_chain.run(query)
 
-            # Step 2: Agent reasoning
+            # Step 2: Agent
             final_answer = run_agent(query, rag_output)
 
-        # ✅ Display results
+        # Show answer
         st.subheader("🧠 Final Answer")
         st.markdown(final_answer)
 
-        # ✅ Show context (IMPORTANT for recruiters)
+        # Show context
         with st.expander("📄 Retrieved Context"):
             st.write(rag_output)
