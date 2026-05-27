@@ -3,9 +3,6 @@ import tempfile
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-
 from langchain_openai import ChatOpenAI
 
 # =======================
@@ -18,7 +15,7 @@ llm = ChatOpenAI(
 )
 
 # =======================
-# 🔹 PROCESS DOCUMENT
+# 🔹 PROCESS DOCUMENT (NO CHROMA)
 # =======================
 def process_document(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -31,19 +28,15 @@ def process_document(uploaded_file):
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     docs = splitter.split_documents(documents)
 
-    embeddings = HuggingFaceEmbeddings()
-    vectordb = Chroma.from_documents(docs, embeddings)
-
-    return vectordb
+    return docs  # ✅ return chunks directly (NO vector DB)
 
 # =======================
-# 🔹 RETRIEVAL
+# 🔹 SIMPLE RETRIEVAL (FAST FIX)
 # =======================
-def get_context(vectordb, query):
-    retriever = vectordb.as_retriever()
-    docs = retriever.get_relevant_documents(query)
-
-    return "\n".join([doc.page_content for doc in docs])
+def get_context(docs, query):
+    # naive retrieval: just join top chunks
+    text = "\n".join([doc.page_content for doc in docs[:5]])
+    return text
 
 # =======================
 # 🔹 RESPONSE GENERATION
@@ -54,16 +47,17 @@ def generate_answer(query, context):
 
     User Query: {query}
 
-    Context:
+    Document Context:
     {context}
 
     Instructions:
-    - If asked to summarize → provide concise summary
-    - If asked for quiz → generate questions
-    - Else → explain clearly using context
+    - Summarize if asked
+    - Generate quiz if asked
+    - Otherwise answer clearly
 
     Final Answer:
     """
+
     return llm.invoke(prompt).content
 
 # =======================
@@ -72,7 +66,7 @@ def generate_answer(query, context):
 
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-# ✅ Animation CSS
+# Animation
 st.markdown(
     """
     <style>
@@ -83,77 +77,58 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ✅ Sidebar
+# Sidebar
 st.sidebar.title("🤖 ChatDocAI")
 st.sidebar.markdown("AI Document Assistant")
-st.sidebar.markdown("---")
-
 st.sidebar.markdown("### 💡 Examples")
 st.sidebar.write("• Summarize document")
 st.sidebar.write("• Generate quiz")
 st.sidebar.write("• Explain concepts")
 
-st.sidebar.markdown("---")
-st.sidebar.info("RAG + LLM + Reasoning AI")
-
-# ✅ Title
+# Title
 st.markdown(
-    """
-    <h1 style='text-align:center;'>🤖 ChatDocAI</h1>
-    <p style='text-align:center;color:gray;'>
-    AI-powered document assistant
-    </p>
-    """,
+    "<h1 style='text-align:center;'>🤖 ChatDocAI</h1>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align:center;color:gray;'>AI-powered document assistant</p>",
     unsafe_allow_html=True
 )
 
-# ✅ Upload Section
-st.markdown("### 📂 Upload Document")
-uploaded_file = st.file_uploader("Upload PDF", type="pdf")
+uploaded_file = st.file_uploader("📂 Upload Document", type="pdf")
 
-# ✅ Chat Memory
+# Chat memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ✅ Show chat history
+# Show history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ✅ Main Logic
 if uploaded_file:
-    vectordb = process_document(uploaded_file)
+    docs = process_document(uploaded_file)
     st.success("✅ Document processed!")
 
-    user_input = st.chat_input("Ask something about your document...")
+    user_input = st.chat_input("Ask something...")
 
     if user_input:
-
-        # Save user message
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # Assistant response
         with st.chat_message("assistant"):
             with st.spinner("Thinking... 🤖"):
-
-                context = get_context(vectordb, user_input)
+                context = get_context(docs, user_input)
                 response = generate_answer(user_input, context)
 
                 st.markdown(response)
 
-                # Save response
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": response
                 })
 
-        # Context display
-        with st.expander("📄 Retrieved Context"):
+        with st.expander("📄 Context Used"):
             st.write(context)
-
