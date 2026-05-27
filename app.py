@@ -1,19 +1,16 @@
 import streamlit as st
 import tempfile
 
-# ✅ Updated LangChain imports (LATEST)
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from langchain_openai import ChatOpenAI
-from langchain.chains.retrieval_qa.base import RetrievalQA
-
 from langchain.agents import initialize_agent, Tool
 
 # =======================
-# 🔹 LOAD LLM (OPENAI)
+# 🔹 LLM
 # =======================
 llm = ChatOpenAI(
     temperature=0,
@@ -32,10 +29,7 @@ def process_document(uploaded_file):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
 
-    splitter = CharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
-    )
+    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     docs = splitter.split_documents(documents)
 
     embeddings = HuggingFaceEmbeddings()
@@ -45,17 +39,15 @@ def process_document(uploaded_file):
     return vectordb
 
 # =======================
-# 🔹 CREATE RAG CHAIN
+# 🔹 RETRIEVAL FUNCTION (REPLACING RetrievalQA)
 # =======================
-def create_rag(vectordb):
+def get_context(vectordb, query):
     retriever = vectordb.as_retriever()
+    docs = retriever.get_relevant_documents(query)
 
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever
-    )
+    context = "\n".join([doc.page_content for doc in docs])
 
-    return qa_chain
+    return context
 
 # =======================
 # 🔹 AGENT TOOLS
@@ -70,12 +62,12 @@ tools = [
     Tool(
         name="Summarizer",
         func=summarize_tool,
-        description="Use this tool to summarize content"
+        description="Use to summarize content"
     ),
     Tool(
         name="QuizGenerator",
         func=quiz_tool,
-        description="Use this tool to generate quiz questions"
+        description="Use to generate quiz questions"
     )
 ]
 
@@ -90,29 +82,29 @@ agent = initialize_agent(
 )
 
 def run_agent(query, context):
-    prompt = f"""
+    full_prompt = f"""
     User Query: {query}
 
     Context:
     {context}
 
-    Decide the task and generate final response.
+    Perform the task and generate final answer.
     """
-    return agent.run(prompt)
+
+    return agent.run(full_prompt)
 
 # =======================
-# 🔹 UI
+# 🔹 STREAMLIT UI
 # =======================
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.title("🤖 ChatDocAI – RAG + Agentic AI")
-st.markdown("🚀 GenAI system using **LLM + RAG + Agent reasoning**")
+st.markdown("🚀 GenAI system using **LLM + Retrieval + Agent reasoning**")
 
-# Example queries
 st.markdown("### 💡 Try asking:")
 st.write("- Summarize the document")
 st.write("- Generate quiz questions")
-st.write("- Explain key topics")
+st.write("- Explain key concepts")
 
 uploaded_file = st.file_uploader("📂 Upload PDF", type="pdf")
 
@@ -120,20 +112,20 @@ if uploaded_file:
     st.success("✅ File uploaded!")
 
     vectordb = process_document(uploaded_file)
-    qa_chain = create_rag(vectordb)
 
     query = st.text_input("💬 Ask your question")
 
     if query:
-        with st.spinner("Processing document and generating response... 🤖"):
-            # Step 1: RAG
-            rag_output = qa_chain.run(query)
+        with st.spinner("Processing... 🤖"):
 
-            # Step 2: Agent
-            final_answer = run_agent(query, rag_output)
+            # ✅ Step 1: Retrieve context (RAG)
+            context = get_context(vectordb, query)
+
+            # ✅ Step 2: Agent reasoning
+            final_answer = run_agent(query, context)
 
         st.subheader("🧠 Final Answer")
         st.markdown(final_answer)
 
         with st.expander("📄 Retrieved Context"):
-            st.write(rag_output)
+            st.write(context)
