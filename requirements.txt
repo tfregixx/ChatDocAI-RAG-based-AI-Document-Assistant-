@@ -8,3 +8,6 @@ sentence-transformers
 pypdf
 openai
 tiktoken
+transformers
+torch
+torchvision
