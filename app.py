@@ -16,22 +16,39 @@ headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 # =======================
 # 🔹 HF API CALL
 # =======================
+import time
+import requests
+
 def query_huggingface(prompt):
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 200,
+            "max_new_tokens": 150,
             "temperature": 0.7
         }
     }
 
-    response = requests.post(MODEL_URL, headers=headers, json=payload)
+    for _ in range(3):  # retry 3 times
+        try:
+            response = requests.post(
+                MODEL_URL,
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
 
-    if response.status_code != 200:
-        return "⚠️ Model is loading or API issue. Try again in a few seconds."
+            if response.status_code == 200:
+                output = response.json()
+                return output[0]["generated_text"]
 
-    output = response.json()
-    return output[0]["generated_text"]
+            elif response.status_code == 503:
+                time.sleep(5)  # model loading → wait and retry
+
+        except requests.exceptions.RequestException:
+            time.sleep(5)
+
+    return "⚠️ Model is currently loading. Please try again in a few seconds."
+
 
 # =======================
 # 🔹 PROCESS DOCUMENT
