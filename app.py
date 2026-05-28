@@ -15,18 +15,15 @@ MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 API CALL (AUTO RETRY)
+# 🔹 API CALL
 # =======================
 def query_huggingface(prompt):
     payload = {
         "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 120,
-            "temperature": 0.6
-        }
+        "parameters": {"max_new_tokens": 120, "temperature": 0.6}
     }
 
-    for _ in range(4):
+    for _ in range(3):
         try:
             response = requests.post(
                 MODEL_URL,
@@ -44,10 +41,10 @@ def query_huggingface(prompt):
         except:
             time.sleep(3)
 
-    return "🤖 AI is warming up... please try again."
+    return "⚡ AI is preparing... please wait."
 
 # =======================
-# 🔹 DOCUMENT PROCESSING
+# 🔹 DOC PROCESSING
 # =======================
 def process_document(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -61,42 +58,39 @@ def process_document(uploaded_file):
     return splitter.split_documents(documents)
 
 # =======================
-# 🔹 SMART RETRIEVAL
+# 🔹 RETRIEVAL
 # =======================
 def get_context(docs, query):
-    scored_docs = []
-
+    scored = []
     for doc in docs:
         score = sum(word in doc.page_content.lower() for word in query.lower().split())
-        scored_docs.append((score, doc.page_content))
+        scored.append((score, doc.page_content))
 
-    scored_docs.sort(reverse=True, key=lambda x: x[0])
-    top_docs = [doc for _, doc in scored_docs[:3]]
-
-    return "\n".join(top_docs)
+    scored.sort(reverse=True)
+    return "\n".join([doc for _, doc in scored[:3]])
 
 # =======================
 # 🔹 TYPING EFFECT
 # =======================
 def typing_effect(text):
-    output = ""
     placeholder = st.empty()
-
-    for char in text:
-        output += char
-        placeholder.markdown(output)
-        time.sleep(0.01)
+    result = ""
+    for ch in text:
+        result += ch
+        placeholder.markdown(result)
+        time.sleep(0.004)
 
 # =======================
-# 🔹 AGENT TOOLS
+# 🔹 MULTI-AGENTS 🧠
 # =======================
-def summarize_tool(context, lang):
-    return query_huggingface(f"Summarize in {lang}:\n{context}")
 
-def quiz_tool(context, lang):
-    return query_huggingface(f"Create 3 quiz questions in {lang}:\n{context}")
+def summarizer_agent(context, lang):
+    return query_huggingface(f"Summarize in {lang}: {context}")
 
-def explain_tool(query, context, lang, history):
+def quiz_agent(context, lang):
+    return query_huggingface(f"Create quiz questions in {lang}: {context}")
+
+def explainer_agent(query, context, lang, history):
     return query_huggingface(f"""
     Answer in {lang}
 
@@ -111,78 +105,92 @@ def explain_tool(query, context, lang, history):
     """)
 
 # =======================
-# 🔹 AGENT PIPELINE
+# 🔹 AGENT ORCHESTRATOR ✅
 # =======================
-def agent_pipeline(query, context, lang, history):
+def multi_agent_system(query, context, lang, history):
     q = query.lower()
 
     if "summarize" in q:
-        return summarize_tool(context, lang)
+        return summarizer_agent(context, lang)
 
-    elif "quiz" in q or "question" in q:
-        summary = summarize_tool(context, lang)
-        return quiz_tool(summary, lang)
+    elif "quiz" in q:
+        summary = summarizer_agent(context, lang)
+        return quiz_agent(summary, lang)
 
     else:
-        return explain_tool(query, context, lang, history)
+        return explainer_agent(query, context, lang, history)
 
 # =======================
-# 🔹 UI
+# 🔹 UI (PARALLAX + GLASS)
 # =======================
 
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-# CSS
+# 🌊 PARALLAX + GLASS CSS
 st.markdown("""
 <style>
-.header-box {
+
+/* 🌊 Animated gradient background */
+body {
+    background: linear-gradient(270deg, #1e293b, #0f172a, #1e293b);
+    background-size: 600% 600%;
+    animation: gradientMove 12s ease infinite;
+}
+
+@keyframes gradientMove {
+    0% {background-position: 0% 50%}
+    50% {background-position: 100% 50%}
+    100% {background-position: 0% 50%}
+}
+
+/* 🧊 Glass effect */
+.glass {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px);
+    border-radius: 16px;
     padding: 20px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #1f77b4, #8e44ad);
-    color: white;
-    text-align: center;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
+/* 🤖 Robot animation */
 .robot {
-    font-size: 40px;
-    animation: bounce 2s infinite;
+    font-size: 50px;
     text-align: center;
+    animation: float 3s infinite ease-in-out;
 }
 
-@keyframes bounce {
+@keyframes float {
     0% {transform: translateY(0);}
-    50% {transform: translateY(-10px);}
+    50% {transform: translateY(-15px);}
     100% {transform: translateY(0);}
 }
 
+/* Chat animation */
 .stChatMessage {
-    animation: fadeIn 0.4s ease-in;
+    animation: fade 0.3s ease-in;
 }
 
-@keyframes fadeIn {
+@keyframes fade {
     from {opacity: 0;}
     to {opacity: 1;}
 }
+
 </style>
 """, unsafe_allow_html=True)
 
-# ROBOT
+# 🤖 Robot
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
-# HEADER
+# Header
 st.markdown("""
-<div class="header-box">
-<h2>ChatDocAI</h2>
-<p>Smart AI assistant that understands and chats with your documents ✨</p>
+<div class="glass">
+<h2 style='text-align:center;'>ChatDocAI</h2>
+<p style='text-align:center;'>Talk to your documents with intelligent AI ✨</p>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(
-"<p style='text-align:center;color:gray;'>Upload a PDF and start an intelligent conversation 📄💬</p>",
-unsafe_allow_html=True
-)
-
-# SIDEBAR
+# Sidebar
 st.sidebar.title("⚙️ Settings")
 
 language = st.sidebar.selectbox(
@@ -190,24 +198,29 @@ language = st.sidebar.selectbox(
     ["English", "Tamil", "Hindi", "Spanish", "French"]
 )
 
-st.sidebar.markdown("### 💡 Try:")
+st.sidebar.markdown("---")
+st.sidebar.write("💡 Try:")
 st.sidebar.write("• Summarize")
-st.sidebar.write("• Generate quiz")
-st.sidebar.write("• Explain content")
+st.sidebar.write("• Quiz")
+st.sidebar.write("• Explain")
 
-st.sidebar.success("✅ Agent AI Ready")
+# Upload
+st.markdown("""
+<div class="glass">
+📄 Upload your document and start chatting instantly
+</div>
+""", unsafe_allow_html=True)
 
-# UPLOAD
-uploaded_file = st.file_uploader("📂 Upload your document", type=["pdf"])
+uploaded_file = st.file_uploader("", type=["pdf"])
 
-# MEMORY
+# Memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "history" not in st.session_state:
     st.session_state.history = ""
 
-# CHAT HISTORY
+# Show chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -215,15 +228,14 @@ for msg in st.session_state.messages:
 # MAIN
 if uploaded_file:
     docs = process_document(uploaded_file)
-    st.success("✅ Document ready!")
+    st.success("✅ Document ready")
 
-    user_input = st.chat_input("Ask anything about your document...")
+    query_huggingface("hello")  # warm-up
+
+    user_input = st.chat_input("💬 Ask something...")
 
     if user_input:
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -233,22 +245,4 @@ if uploaded_file:
 
                 context = get_context(docs, user_input)
 
-                response = agent_pipeline(
-                    user_input,
-                    context,
-                    language,
-                    st.session_state.history
-                )
-
-                typing_effect(response)
-
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": response
-                })
-
-                st.session_state.history += f"\nUser: {user_input}\nAI: {response}"
-
-        with st.expander("📄 Context Used"):
-            st.write(context)
-
+                response
