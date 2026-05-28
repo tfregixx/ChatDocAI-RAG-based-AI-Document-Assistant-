@@ -1,26 +1,23 @@
 import streamlit as st
 import tempfile
 import requests
+import time
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 
 # =======================
-# 🔹 CONFIG
+# 🔹 CONFIG (HuggingFace)
 # =======================
 HF_API_KEY = st.secrets["HUGGINGFACE_API_KEY"]
+
 MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-
-
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
 # 🔹 HF API CALL
 # =======================
-import time
-import requests
-
 def query_huggingface(prompt):
     payload = {
         "inputs": prompt,
@@ -30,7 +27,7 @@ def query_huggingface(prompt):
         }
     }
 
-    for _ in range(3):  # retry 3 times
+    for _ in range(3):
         try:
             response = requests.post(
                 MODEL_URL,
@@ -40,20 +37,18 @@ def query_huggingface(prompt):
             )
 
             if response.status_code == 200:
-                output = response.json()
-                return output[0]["generated_text"]
+                return response.json()[0]["generated_text"]
 
             elif response.status_code == 503:
-                time.sleep(5)  # model loading → wait and retry
+                time.sleep(5)
 
         except requests.exceptions.RequestException:
             time.sleep(5)
 
-    return "⚠️ Model is currently loading. Please try again in a few seconds."
-
+    return "⚠️ AI model busy. Try again."
 
 # =======================
-# 🔹 PROCESS DOCUMENT
+# 🔹 DOCUMENT PROCESSING
 # =======================
 def process_document(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -69,93 +64,154 @@ def process_document(uploaded_file):
     return docs
 
 # =======================
-# 🔹 RETRIEVAL
+# 🔹 SMART RETRIEVAL
 # =======================
-def get_context(docs):
-    return "\n".join([doc.page_content for doc in docs[:5]])
+def get_context(docs, query):
+    scored_docs = []
+
+    for doc in docs:
+        score = sum(word in doc.page_content.lower() for word in query.lower().split())
+        scored_docs.append((score, doc.page_content))
+
+    scored_docs.sort(reverse=True, key=lambda x: x[0])
+    top_docs = [doc for _, doc in scored_docs[:3]]
+
+    return "\n".join(top_docs)
 
 # =======================
-# 🔹 GENERATE ANSWER
+# 🔹 AGENT TOOLS
 # =======================
-def generate_answer(query, context):
-    context = context[:1200]
+def summarize_tool(context, language):
+    return query_huggingface(f"Summarize in {language}:\n{context}")
 
-    prompt = f"""
-    You are an AI assistant.
+def quiz_tool(context, language):
+    return query_huggingface(f"Create 3 quiz questions in {language}:\n{context}")
+
+def explain_tool(query, context, language, history):
+    return query_huggingface(f"""
+    Answer in {language}
+
+    Conversation History:
+    {history}
 
     Context:
     {context}
 
-    User Query:
+    Question:
     {query}
-
-    Instructions:
-    - If summarize → summarize
-    - If quiz → create questions
-    - Otherwise explain clearly
-
-    Answer:
-    """
-
-    return query_huggingface(prompt)
+    """)
 
 # =======================
-# 🔹 UI (STARTUP STYLE)
+# 🔹 MULTI-STEP AGENT
+# =======================
+def agent_pipeline(query, context, language, history):
+    q = query.lower()
+
+    if "summarize" in q:
+        return summarize_tool(context, language)
+
+    elif "quiz" in q or "question" in q:
+        summary = summarize_tool(context, language)
+        return quiz_tool(summary, language)
+
+    else:
+        return explain_tool(query, context, language, history)
+
+# =======================
+# 🔹 UI
 # =======================
 
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-# Animation
-st.markdown(
-    """
-    <style>
-    .stChatMessage {animation: fadeIn 0.4s ease-in;}
-    @keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
-    </style>
-    """,
-    unsafe_allow_html=True
+# ✅ Animation
+st.markdown("""
+<style>
+.stChatMessage {animation: fadeIn 0.4s ease-in;}
+@keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
+
+.header-box {
+    padding: 15px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #1f77b4, #9467bd);
+    color: white;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ✅ Header
+st.markdown("""
+<div class="header-box">
+<h2>🤖 ChatDocAI</h2>
+<p>Agentic AI Document Assistant (RAG + Multi-Step)</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ✅ Sidebar
+st.sidebar.title("⚙️ Settings")
+
+language = st.sidebar.selectbox(
+    "🌐 Select Language",
+    ["English", "Tamil", "Spanish", "French", "Hindi"]
 )
 
-# Sidebar
-st.sidebar.title("🤖 ChatDocAI")
-st.sidebar.markdown("AI Document Assistant")
-st.sidebar.markdown("### 💡 Examples")
+st.sidebar.markdown("---")
+
+st.sidebar.markdown("### 💡 Example Prompts")
 st.sidebar.write("• Summarize document")
 st.sidebar.write("• Generate quiz")
-st.sidebar.write("• Explain concepts")
+st.sidebar.write("• Explain concept")
 
-# Title
-st.markdown("<h1 style='text-align:center;'>🤖 ChatDocAI</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;color:gray;'>AI-powered document assistant</p>", unsafe_allow_html=True)
+st.sidebar.markdown("---")
+st.sidebar.success("✅ Agentic AI Enabled")
 
-uploaded_file = st.file_uploader("📂 Upload Document", type="pdf")
+# ✅ Upload
+st.markdown("### 📂 Upload Document")
+uploaded_file = st.file_uploader("", type=["pdf"])
 
-# Chat memory
+# ✅ Memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show chat history
+if "history" not in st.session_state:
+    st.session_state.history = ""
+
+# ✅ Chat UI
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+
+# =======================
+# 🔹 MAIN FLOW
+# =======================
 
 if uploaded_file:
     docs = process_document(uploaded_file)
     st.success("✅ Document processed!")
 
-    user_input = st.chat_input("Ask something...")
+    user_input = st.chat_input("💬 Ask your question...")
 
     if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_input
+        })
 
         with st.chat_message("user"):
             st.markdown(user_input)
 
         with st.chat_message("assistant"):
-            with st.spinner("Thinking... 🤖"):
+            with st.spinner("🤖 Thinking..."):
 
-                context = get_context(docs)
-                response = generate_answer(user_input, context)
+                context = get_context(docs, user_input)
+
+                response = agent_pipeline(
+                    user_input,
+                    context,
+                    language,
+                    st.session_state.history
+                )
 
                 st.markdown(response)
 
@@ -163,6 +219,8 @@ if uploaded_file:
                     "role": "assistant",
                     "content": response
                 })
+
+                st.session_state.history += f"\nUser: {user_input}\nAI: {response}"
 
         with st.expander("📄 Context Used"):
             st.write(context)
