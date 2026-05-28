@@ -1,21 +1,40 @@
 import streamlit as st
 import tempfile
+import requests
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_openai import ChatOpenAI
 
 # =======================
-# 🔹 LLM
+# 🔹 CONFIG
 # =======================
-llm = ChatOpenAI(
-    temperature=0,
-    api_key=st.secrets["OPENAI_API_KEY"],
-    model="gpt-3.5-turbo"
-)
+HF_API_KEY = st.secrets["HUGGINGFACE_API_KEY"]
+MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+
+headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 PROCESS DOCUMENT (NO CHROMA)
+# 🔹 HF API CALL
+# =======================
+def query_huggingface(prompt):
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 200,
+            "temperature": 0.7
+        }
+    }
+
+    response = requests.post(MODEL_URL, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        return "⚠️ Model is loading or API issue. Try again in a few seconds."
+
+    output = response.json()
+    return output[0]["generated_text"]
+
+# =======================
+# 🔹 PROCESS DOCUMENT
 # =======================
 def process_document(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -28,37 +47,38 @@ def process_document(uploaded_file):
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     docs = splitter.split_documents(documents)
 
-    return docs  # ✅ return chunks directly (NO vector DB)
+    return docs
 
 # =======================
-# 🔹 SIMPLE RETRIEVAL (FAST FIX)
+# 🔹 RETRIEVAL
 # =======================
-def get_context(docs, query):
-    # naive retrieval: just join top chunks
-    text = "\n".join([doc.page_content for doc in docs[:5]])
-    return text
+def get_context(docs):
+    return "\n".join([doc.page_content for doc in docs[:5]])
 
 # =======================
-# 🔹 RESPONSE GENERATION
+# 🔹 GENERATE ANSWER
 # =======================
 def generate_answer(query, context):
+    context = context[:1200]
+
     prompt = f"""
-    You are an intelligent AI assistant.
+    You are an AI assistant.
 
-    User Query: {query}
-
-    Document Context:
+    Context:
     {context}
 
-    Instructions:
-    - Summarize if asked
-    - Generate quiz if asked
-    - Otherwise answer clearly
+    User Query:
+    {query}
 
-    Final Answer:
+    Instructions:
+    - If summarize → summarize
+    - If quiz → create questions
+    - Otherwise explain clearly
+
+    Answer:
     """
 
-    return llm.invoke(prompt).content
+    return query_huggingface(prompt)
 
 # =======================
 # 🔹 UI (STARTUP STYLE)
@@ -86,14 +106,8 @@ st.sidebar.write("• Generate quiz")
 st.sidebar.write("• Explain concepts")
 
 # Title
-st.markdown(
-    "<h1 style='text-align:center;'>🤖 ChatDocAI</h1>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p style='text-align:center;color:gray;'>AI-powered document assistant</p>",
-    unsafe_allow_html=True
-)
+st.markdown("<h1 style='text-align:center;'>🤖 ChatDocAI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;color:gray;'>AI-powered document assistant</p>", unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("📂 Upload Document", type="pdf")
 
@@ -101,7 +115,7 @@ uploaded_file = st.file_uploader("📂 Upload Document", type="pdf")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show history
+# Show chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -120,7 +134,8 @@ if uploaded_file:
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking... 🤖"):
-                context = get_context(docs, user_input)
+
+                context = get_context(docs)
                 response = generate_answer(user_input, context)
 
                 st.markdown(response)
