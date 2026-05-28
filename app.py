@@ -7,45 +7,44 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 
 # =======================
-# 🔹 CONFIG (HuggingFace)
+# 🔹 CONFIG
 # =======================
 HF_API_KEY = st.secrets["HUGGINGFACE_API_KEY"]
-
 MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 HF API CALL
+# 🔹 API CALL (AUTO RETRY)
 # =======================
 def query_huggingface(prompt):
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 150,
-            "temperature": 0.7
+            "max_new_tokens": 120,
+            "temperature": 0.6
         }
     }
 
-    for _ in range(3):
+    for _ in range(4):
         try:
             response = requests.post(
                 MODEL_URL,
                 headers=headers,
                 json=payload,
-                timeout=30
+                timeout=20
             )
 
             if response.status_code == 200:
                 return response.json()[0]["generated_text"]
 
             elif response.status_code == 503:
-                time.sleep(5)
+                time.sleep(3)
 
-        except requests.exceptions.RequestException:
-            time.sleep(5)
+        except:
+            time.sleep(3)
 
-    return "⚠️ AI model busy. Try again."
+    return "🤖 AI is warming up... please try again."
 
 # =======================
 # 🔹 DOCUMENT PROCESSING
@@ -59,9 +58,7 @@ def process_document(uploaded_file):
     documents = loader.load()
 
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    docs = splitter.split_documents(documents)
-
-    return docs
+    return splitter.split_documents(documents)
 
 # =======================
 # 🔹 SMART RETRIEVAL
@@ -79,19 +76,31 @@ def get_context(docs, query):
     return "\n".join(top_docs)
 
 # =======================
+# 🔹 TYPING EFFECT
+# =======================
+def typing_effect(text):
+    output = ""
+    placeholder = st.empty()
+
+    for char in text:
+        output += char
+        placeholder.markdown(output)
+        time.sleep(0.01)
+
+# =======================
 # 🔹 AGENT TOOLS
 # =======================
-def summarize_tool(context, language):
-    return query_huggingface(f"Summarize in {language}:\n{context}")
+def summarize_tool(context, lang):
+    return query_huggingface(f"Summarize in {lang}:\n{context}")
 
-def quiz_tool(context, language):
-    return query_huggingface(f"Create 3 quiz questions in {language}:\n{context}")
+def quiz_tool(context, lang):
+    return query_huggingface(f"Create 3 quiz questions in {lang}:\n{context}")
 
-def explain_tool(query, context, language, history):
+def explain_tool(query, context, lang, history):
     return query_huggingface(f"""
-    Answer in {language}
+    Answer in {lang}
 
-    Conversation History:
+    History:
     {history}
 
     Context:
@@ -102,20 +111,20 @@ def explain_tool(query, context, language, history):
     """)
 
 # =======================
-# 🔹 MULTI-STEP AGENT
+# 🔹 AGENT PIPELINE
 # =======================
-def agent_pipeline(query, context, language, history):
+def agent_pipeline(query, context, lang, history):
     q = query.lower()
 
     if "summarize" in q:
-        return summarize_tool(context, language)
+        return summarize_tool(context, lang)
 
     elif "quiz" in q or "question" in q:
-        summary = summarize_tool(context, language)
-        return quiz_tool(summary, language)
+        summary = summarize_tool(context, lang)
+        return quiz_tool(summary, lang)
 
     else:
-        return explain_tool(query, context, language, history)
+        return explain_tool(query, context, lang, history)
 
 # =======================
 # 🔹 UI
@@ -123,76 +132,94 @@ def agent_pipeline(query, context, language, history):
 
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
-# ✅ Animation
+# CSS
 st.markdown("""
 <style>
-.stChatMessage {animation: fadeIn 0.4s ease-in;}
-@keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
-
 .header-box {
-    padding: 15px;
+    padding: 20px;
     border-radius: 12px;
-    background: linear-gradient(90deg, #1f77b4, #9467bd);
+    background: linear-gradient(135deg, #1f77b4, #8e44ad);
     color: white;
     text-align: center;
+}
+
+.robot {
+    font-size: 40px;
+    animation: bounce 2s infinite;
+    text-align: center;
+}
+
+@keyframes bounce {
+    0% {transform: translateY(0);}
+    50% {transform: translateY(-10px);}
+    100% {transform: translateY(0);}
+}
+
+.stChatMessage {
+    animation: fadeIn 0.4s ease-in;
+}
+
+@keyframes fadeIn {
+    from {opacity: 0;}
+    to {opacity: 1;}
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ Header
+# ROBOT
+st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
+
+# HEADER
 st.markdown("""
 <div class="header-box">
-<h2>🤖 ChatDocAI</h2>
-<p>Agentic AI Document Assistant (RAG + Multi-Step)</p>
+<h2>ChatDocAI</h2>
+<p>Smart AI assistant that understands and chats with your documents ✨</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ✅ Sidebar
+st.markdown(
+"<p style='text-align:center;color:gray;'>Upload a PDF and start an intelligent conversation 📄💬</p>",
+unsafe_allow_html=True
+)
+
+# SIDEBAR
 st.sidebar.title("⚙️ Settings")
 
 language = st.sidebar.selectbox(
-    "🌐 Select Language",
-    ["English", "Tamil", "Spanish", "French", "Hindi"]
+    "🌐 Language",
+    ["English", "Tamil", "Hindi", "Spanish", "French"]
 )
 
-st.sidebar.markdown("---")
-
-st.sidebar.markdown("### 💡 Example Prompts")
-st.sidebar.write("• Summarize document")
+st.sidebar.markdown("### 💡 Try:")
+st.sidebar.write("• Summarize")
 st.sidebar.write("• Generate quiz")
-st.sidebar.write("• Explain concept")
+st.sidebar.write("• Explain content")
 
-st.sidebar.markdown("---")
-st.sidebar.success("✅ Agentic AI Enabled")
+st.sidebar.success("✅ Agent AI Ready")
 
-# ✅ Upload
-st.markdown("### 📂 Upload Document")
-uploaded_file = st.file_uploader("", type=["pdf"])
+# UPLOAD
+uploaded_file = st.file_uploader("📂 Upload your document", type=["pdf"])
 
-# ✅ Memory
+# MEMORY
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "history" not in st.session_state:
     st.session_state.history = ""
 
-# ✅ Chat UI
+# CHAT HISTORY
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# =======================
-# 🔹 MAIN FLOW
-# =======================
-
+# MAIN
 if uploaded_file:
     docs = process_document(uploaded_file)
-    st.success("✅ Document processed!")
+    st.success("✅ Document ready!")
 
-    user_input = st.chat_input("💬 Ask your question...")
+    user_input = st.chat_input("Ask anything about your document...")
 
     if user_input:
-
         st.session_state.messages.append({
             "role": "user",
             "content": user_input
@@ -213,7 +240,7 @@ if uploaded_file:
                     st.session_state.history
                 )
 
-                st.markdown(response)
+                typing_effect(response)
 
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -224,3 +251,4 @@ if uploaded_file:
 
         with st.expander("📄 Context Used"):
             st.write(context)
+``
