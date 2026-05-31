@@ -11,39 +11,43 @@ from langchain_text_splitters import CharacterTextSplitter
 # =======================
 HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
 MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 SESSION CACHE ✅
+# 🔹 SESSION CACHE ⚡
 # =======================
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
+if "warm" not in st.session_state:
+    st.session_state.warm = False
+
 # =======================
-# 🔹 SAFE API CALL (CACHED)
+# 🔹 FAST API CALL
 # =======================
 def query_huggingface(prompt):
 
+    # ✅ CACHE HIT → instant
     if prompt in st.session_state.cache:
         return st.session_state.cache[prompt]
 
     payload = {
         "inputs": prompt,
-        "parameters": {"max_new_tokens": 120, "temperature": 0.6}
+        "parameters": {"max_new_tokens": 100, "temperature": 0.5}
     }
 
-    for _ in range(3):
+    for _ in range(5):  # strong retry
         try:
             response = requests.post(
                 MODEL_URL,
                 headers=headers,
                 json=payload,
-                timeout=20
+                timeout=15
             )
 
             if response.status_code == 200:
                 result = response.json()[0]["generated_text"]
+
                 st.session_state.cache[prompt] = result
                 return result
 
@@ -51,12 +55,12 @@ def query_huggingface(prompt):
                 time.sleep(2)
 
         except:
-            time.sleep(2)
+            time.sleep(1)
 
-    return "⚡ AI is preparing... please try again."
+    return None  # ✅ no error text
 
 # =======================
-# 🔹 DOCUMENT PROCESSING ✅
+# 🔹 DOCUMENT PROCESSING
 # =======================
 @st.cache_resource
 def process_document(file_bytes):
@@ -71,43 +75,37 @@ def process_document(file_bytes):
     return splitter.split_documents(docs)
 
 # =======================
-# 🔹 LIGHTWEIGHT RETRIEVAL ✅
+# 🔹 FAST RETRIEVAL
 # =======================
 def get_context(docs, query):
-
     query_words = set(query.lower().split())
-    scored = []
+    scores = []
 
     for doc in docs:
-        content = doc.page_content
-        content_words = set(content.lower().split())
+        words = set(doc.page_content.lower().split())
+        score = len(query_words & words)
+        scores.append((score, doc.page_content))
 
-        score = len(query_words.intersection(content_words))
-        scored.append((score, content))
+    scores.sort(reverse=True)
 
-    scored.sort(reverse=True)
-    return "\n".join([doc for _, doc in scored[:3]])
+    return "\n".join([x[1] for x in scores[:3]])
 
 # =======================
-# 🔹 OFFLINE MODE ✅
+# 🔹 OFFLINE FALLBACK
 # =======================
-def offline_answer(context, query):
+def offline_answer(context):
     return f"""
-📄 Based on your document:
+📄 Quick answer based on document:
 
-{context[:400]}
+{context[:300]}
 
-✅ Answer:
-Relevant information is shown above. You can review it for your question.
+✅ Tip: Try asking more specific questions for better results.
 """
 
 # =======================
-# 🔹 MULTI-AGENT ✅
+# 🔹 AGENT SYSTEM
 # =======================
-def multi_agent(query, context, lang, offline):
-
-    if offline:
-        return offline_answer(context, query)
+def multi_agent(query, context, lang):
 
     q = query.lower()
 
@@ -116,7 +114,7 @@ def multi_agent(query, context, lang, offline):
 
     elif "quiz" in q:
         summary = query_huggingface(f"Summarize in {lang}: {context}")
-        return query_huggingface(f"Create quiz questions in {lang}: {summary}")
+        return query_huggingface(f"Create 3 quiz questions in {lang}: {summary}")
 
     else:
         return query_huggingface(f"""
@@ -130,31 +128,29 @@ def multi_agent(query, context, lang, offline):
         """)
 
 # =======================
-# 🔹 TYPING EFFECT ✅
+# 🔹 FAST STREAMING UI
 # =======================
 def typing_effect(text):
+    if not text:
+        return
     placeholder = st.empty()
-    output = ""
-
-    for ch in text:
-        output += ch
-        placeholder.markdown(output)
-        time.sleep(0.002)
-
-# =======================
-# 🔹 UI (PARALLAX + GLASS)
+    for i in range(len(text)):
+        placeholder.markdown(text[:i+1])
+        time.sleep(0.0015)  # ⚡ VERY FAST
 # =======================
 
+# =======================
+# 🔹 UI
+# =======================
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
 <style>
 
-/* 🌊 Animated gradient background */
 body {
     background: linear-gradient(270deg,#1e293b,#020617,#1e293b);
     background-size: 600% 600%;
-    animation: gradientMove 12s ease infinite;
+    animation: gradientMove 10s ease infinite;
 }
 
 @keyframes gradientMove {
@@ -163,37 +159,34 @@ body {
     100%{background-position:0% 50%}
 }
 
-/* 🧊 Glass */
 .glass {
     background: rgba(255,255,255,0.08);
     backdrop-filter: blur(12px);
-    padding:20px;
-    border-radius:16px;
-    border:1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* 🤖 Robot */
 .robot {
-    font-size:50px;
-    text-align:center;
-    animation: float 3s infinite;
+    font-size: 50px;
+    text-align: center;
+    animation: float 2.5s infinite;
 }
 
 @keyframes float {
-    50%{transform: translateY(-10px);}
+    50%{transform: translateY(-8px);}
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# 🤖 Robot
+# 🤖 UI header
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
-# Header
 st.markdown("""
 <div class="glass">
 <h2 style='text-align:center;'>ChatDocAI</h2>
-<p style='text-align:center;'>AI that chats with your documents intelligently ✨</p>
+<p style='text-align:center;'>Talk to your documents instantly ⚡</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -205,13 +198,6 @@ language = st.sidebar.selectbox(
     ["English", "Tamil", "Hindi", "Spanish", "French"]
 )
 
-offline_mode = st.sidebar.toggle("⚡ Offline Mode", value=False)
-
-st.sidebar.markdown("💡 Try:")
-st.sidebar.write("• Summarize")
-st.sidebar.write("• Quiz")
-st.sidebar.write("• Explain")
-
 # Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 
@@ -219,31 +205,34 @@ uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show chat
+# Chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # =======================
-# 🔹 MAIN APP
+# 🔹 MAIN
 # =======================
 
 if uploaded_file:
 
-    file_bytes = uploaded_file.read()
+    docs = process_document(uploaded_file.read())
+    st.success("✅ Document ready!")
 
-    docs = process_document(file_bytes)
+    # ✅ WARM-UP ONCE (CRITICAL SPEED BOOST)
+    if not st.session_state.warm:
+        with st.spinner("⚡ Optimizing AI experience..."):
+            query_huggingface("Explain AI in one line")
+        st.session_state.warm = True
 
-    st.success("✅ Document processed successfully")
-
-    # warm-up
-    query_huggingface("hello")
-
-    user_input = st.chat_input("Ask anything about your document...")
+    user_input = st.chat_input("Ask anything...")
 
     if user_input:
 
-        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_input
+        })
 
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -256,19 +245,24 @@ if uploaded_file:
                 response = multi_agent(
                     user_input,
                     context,
-                    language,
-                    offline_mode
+                    language
                 )
 
-                # auto retry
-                if "preparing" in response.lower():
-                    time.sleep(2)
-                    response = multi_agent(
-                        user_input,
-                        context,
-                        language,
-                        offline_mode
-                    )
+                # ✅ AUTO RECOVERY LOOP
+                if not response:
+                    for _ in range(2):
+                        time.sleep(2)
+                        response = multi_agent(
+                            user_input,
+                            context,
+                            language
+                        )
+                        if response:
+                            break
+
+                # ✅ FINAL FALLBACK
+                if not response:
+                    response = offline_answer(context)
 
                 typing_effect(response)
 
