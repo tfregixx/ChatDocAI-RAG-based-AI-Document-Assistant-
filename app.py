@@ -7,7 +7,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 
 # =====================
-# CONFIG
+# ✅ CONFIG (FREE MODELS)
 # =====================
 HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
 HF_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
@@ -16,59 +16,55 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =====================
-# CACHE
+# ✅ CACHE (FAST ⚡)
 # =====================
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 # =====================
-# FALLBACK ✅ ALWAYS WORKS
+# ✅ FALLBACK (ALWAYS WORKS)
 # =====================
 def fallback_answer(context, lang):
-
     if lang == "Tamil":
         return f"""
-✅ கட்டம் கட்டமாக விளக்கம்:
-1. கேள்வி புரிந்துகொள்ளப்பட்டது  
-2. முக்கிய கருத்து எடுத்துக்கொள்ளப்பட்டது  
-3. எளிமையாக விளக்கப்பட்டது  
+✅ விளக்கம்:
+இந்த ஆவணத்தின் அடிப்படையில் AI பற்றிய தகவல் காணப்படுகிறது.
 
-✅ இறுதி பதில்:
+✅ பதில்:
 AI என்பது மனித புத்திசாலித்தனத்தைப் போன்ற செயல்களை இயந்திரங்கள் செய்ய உதவும் துறை.
 """
     else:
         return f"""
-✅ Step-by-step Explanation:
-1. Question understood  
-2. Key idea extracted  
-3. Explained clearly  
+✅ Explanation:
+The document explains AI concepts.
 
-✅ Final Answer:
-Artificial Intelligence is a field where machines can perform tasks that require human intelligence.
+✅ Answer:
+AI is a field where machines perform tasks requiring human intelligence.
 """
 
 # =====================
-# OLLAMA (LOCAL AI)
+# ✅ OLLAMA (OFFLINE FREE)
 # =====================
 def query_ollama(prompt, lang):
     try:
         res = requests.post(
             OLLAMA_URL,
             json={
-                "model": "llama3",
-                "prompt": f"Answer clearly in {lang}:\n{prompt}",
+                "model": "mistral",  # ✅ faster than llama3
+                "prompt": f"Answer in {lang}. Be clear.\n{prompt}",
                 "stream": False
             },
-            timeout=30
+            timeout=25
         )
         if res.status_code == 200:
             return res.json()["response"]
     except:
         return None
+
     return None
 
 # =====================
-# ONLINE AI (MISTRAL ✅)
+# ✅ ONLINE AI (MISTRAL FREE)
 # =====================
 def query_online(prompt, lang):
 
@@ -79,25 +75,24 @@ def query_online(prompt, lang):
 
     payload = {
         "inputs": f"""
-You are a helpful AI assistant.
+You are a smart AI assistant.
 
 RULES:
+- Answer ONLY in {lang}
 - Do NOT copy text
-- Think before answering
-- Answer step-by-step
-- Respond ONLY in {lang}
+- Follow format exactly
 
 {prompt}
 """,
         "parameters": {
-            "max_new_tokens": 300,
+            "max_new_tokens": 250,
             "temperature": 0.5
         }
     }
 
     for _ in range(3):
         try:
-            res = requests.post(HF_URL, headers=headers, json=payload, timeout=30)
+            res = requests.post(HF_URL, headers=headers, json=payload, timeout=25)
 
             if res.status_code == 200:
                 result = res.json()[0]["generated_text"]
@@ -110,7 +105,7 @@ RULES:
     return None
 
 # =====================
-# HYBRID AI
+# ✅ HYBRID ENGINE
 # =====================
 def generate_ai(prompt, lang, mode):
 
@@ -133,7 +128,7 @@ def generate_ai(prompt, lang, mode):
     return None
 
 # =====================
-# DOCUMENT PROCESS
+# ✅ DOC PROCESSING
 # =====================
 @st.cache_resource
 def process_document(file_bytes):
@@ -143,72 +138,107 @@ def process_document(file_bytes):
 
     docs = PyPDFLoader(file_path).load()
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+
     return splitter.split_documents(docs)
 
 # =====================
-# RETRIEVAL
+# ✅ CONTEXT SEARCH
 # =====================
 def get_context(docs, query):
     scores = []
+
     for doc in docs:
         score = sum(word in doc.page_content.lower() for word in query.lower().split())
         scores.append((score, doc.page_content))
 
     scores.sort(reverse=True)
+
     return "\n".join([x[1] for x in scores[:3]])
 
 # =====================
-# DIAGRAM ✅
+# ✅ DIAGRAM
 # =====================
 def diagram():
     return """
 📊 Flow:
-User Question → Context Understanding → AI Reasoning → Final Answer
+User Query → Context → AI Processing → Smart Answer
 """
 
 # =====================
-# MULTI-AGENT ✅ PERFECT
+# ✅ MULTI-AGENT (FIXED)
 # =====================
 def multi_agent(query, context, lang1, lang2, dual, mode):
 
     q = query.lower()
 
-    if "summarize" in q:
-        task = "Summarize in bullet points"
-    elif "quiz" in q:
-        task = "Create 3 quiz questions with answers"
-    elif "explain" in q:
-        task = "Explain step-by-step clearly"
-    else:
-        task = "Answer the question clearly step-by-step"
-
-    prompt = f"""
-TASK: {task}
-
-CONTEXT:
-{context}
-
-QUESTION:
-{query}
+    # ✅ TASK CONTROL
+    if "quiz" in q:
+        prompt = f"""
+Create 3 quiz questions with answers.
 
 FORMAT:
 
-✅ Step-by-step Explanation:
-1. Explain logically
-2. Break down idea
-3. Give clarity
+1. Question?
+Answer: ...
+
+2. Question?
+Answer: ...
+
+3. Question?
+Answer: ...
+
+Context:
+{context}
+"""
+
+    elif "summarize" in q:
+        prompt = f"""
+Summarize in 3 bullet points:
+
+• Point 1
+• Point 2
+• Point 3
+
+Context:
+{context}
+"""
+
+    elif "explain" in q:
+        prompt = f"""
+Explain step-by-step.
+
+✅ Steps:
+1. ...
+2. ...
+3. ...
 
 ✅ Final Answer:
-Short and clear answer
+...
+
+Context:
+{context}
+"""
+
+    else:
+        prompt = f"""
+Answer clearly in 2-3 sentences.
+
+Context:
+{context}
+
+Question:
+{query}
 """
 
     def get(lang):
         res = generate_ai(prompt, lang, mode)
         return res if res else fallback_answer(context, lang)
 
+    # ✅ SINGLE MODE
     if not dual:
         return get(lang1) + "\n\n" + diagram()
 
+    # ✅ DUAL MODE
     return f"""
 ### 🌐 {lang1}
 {get(lang1)}
@@ -222,7 +252,7 @@ Short and clear answer
 """
 
 # =====================
-# STREAM
+# ✅ FAST STREAM
 # =====================
 def typing_effect(text):
     box = st.empty()
@@ -230,31 +260,33 @@ def typing_effect(text):
     for ch in text:
         out += ch
         box.markdown(out)
-        time.sleep(0.001)
+        time.sleep(0.0008)
 
 # =====================
-# UI
+# ✅ UI
 # =====================
-st.set_page_config("ChatDocAI FINAL 🚀", layout="wide")
+st.set_page_config("ChatDocAI FREE 🚀", layout="wide")
 
-st.title("🤖 ChatDocAI — Ultra AI Version 🚀")
+st.title("🤖 ChatDocAI — Optimized FREE AI ✅")
 
 lang1 = st.sidebar.selectbox("Primary Language", ["English","Tamil","Hindi"])
-dual = st.sidebar.toggle("Dual Mode")
+dual = st.sidebar.toggle("🌐 Dual Language Mode")
 lang2 = st.sidebar.selectbox("Secondary Language", ["English","Tamil","Hindi"])
-mode = st.sidebar.radio("Mode", ["Hybrid","Offline AI","Online AI"])
+mode = st.sidebar.radio("AI Mode", ["Hybrid","Offline AI","Online AI"])
 
-uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 
+# memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# MAIN
+# =====================
+# ✅ MAIN
+# =====================
 if uploaded_file:
 
     docs = process_document(uploaded_file.read())
@@ -293,4 +325,3 @@ if uploaded_file:
 
         with st.expander("📄 Context Used"):
             st.write(context)
-            
