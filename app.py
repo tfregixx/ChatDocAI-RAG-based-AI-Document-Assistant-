@@ -10,7 +10,9 @@ from langchain_text_splitters import CharacterTextSplitter
 # 🔹 CONFIG
 # =======================
 HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
-MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+HF_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
@@ -20,45 +22,75 @@ if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 # =======================
-# 🔹 STRONG TRANSLATION FUNCTION ✅
+# 🔹 OLLAMA (OFFLINE AI)
 # =======================
-def query_hf(prompt, lang):
+def query_ollama(prompt, lang):
+    try:
+        res = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": "llama3",
+                "prompt": f"Answer in {lang}:\n{prompt}",
+                "stream": False
+            },
+            timeout=30
+        )
+        if res.status_code == 200:
+            return res.json()["response"]
+    except:
+        return None
+    return None
+
+# =======================
+# 🔹 ONLINE AI
+# =======================
+def query_online(prompt, lang):
 
     cache_key = f"{lang}_{prompt}"
     if cache_key in st.session_state.cache:
         return st.session_state.cache[cache_key]
 
-    # ✅ Strong instruction fix
-    if lang == "English":
-        instruction = "Answer clearly in English."
-    else:
-        instruction = f"""
-        Translate the answer fully into {lang}.
-        DO NOT use English at all.
-        Use simple and natural {lang}.
-        """
-
     payload = {
-        "inputs": f"{instruction}\n{prompt}",
-        "parameters": {"max_new_tokens": 120, "temperature": 0.4}
+        "inputs": f"""
+Answer in {lang}.
+Do NOT copy context.
+Use reasoning.
+
+{prompt}
+""",
+        "parameters": {"max_new_tokens": 200, "temperature": 0.4}
     }
 
-    for _ in range(5):
-        try:
-            res = requests.post(MODEL_URL, headers=headers, json=payload, timeout=15)
+    try:
+        res = requests.post(HF_URL, headers=headers, json=payload, timeout=15)
 
-            if res.status_code == 200:
-                output = res.json()[0]["generated_text"]
-
-                st.session_state.cache[cache_key] = output
-                return output
-        except:
-            time.sleep(1)
+        if res.status_code == 200:
+            result = res.json()[0]["generated_text"]
+            st.session_state.cache[cache_key] = result
+            return result
+    except:
+        return None
 
     return None
 
 # =======================
-# 🔹 DOCUMENT PROCESSING
+# 🔹 HYBRID AI
+# =======================
+def generate_ai(prompt, lang, mode):
+
+    if mode == "Offline AI":
+        return query_ollama(prompt, lang)
+
+    elif mode == "Online AI":
+        return query_online(prompt, lang)
+
+    elif mode == "Hybrid":
+        return query_ollama(prompt, lang) or query_online(prompt, lang)
+
+    return None
+
+# =======================
+# 🔹 DOC PROCESSING
 # =======================
 @st.cache_resource
 def process_document(file_bytes):
@@ -74,122 +106,135 @@ def process_document(file_bytes):
 # 🔹 RETRIEVAL
 # =======================
 def get_context(docs, query):
-    q_words = set(query.lower().split())
+    words = set(query.lower().split())
     scores = []
 
     for doc in docs:
-        words = set(doc.page_content.lower().split())
-        score = len(q_words & words)
+        content_words = set(doc.page_content.lower().split())
+        score = len(words & content_words)
         scores.append((score, doc.page_content))
 
     scores.sort(reverse=True)
     return "\n".join([x[1] for x in scores[:3]])
 
 # =======================
-# 🔹 FALLBACK (TRANSLATED ✅)
+# 🔹 DIAGRAM GENERATOR ✅
 # =======================
-def fallback_answer(context, lang):
+def generate_diagram(context):
+    return f"""
+📊 Diagram:
 
-    short_context = context[:300]
-
-    fallback_prompt = f"""
-    Explain this in {lang}:
-
-    {short_context}
-    """
-
-    result = query_hf(fallback_prompt, lang)
-
-    return result if result else short_context
+[ Question ]
+   ↓
+[ Extract Context ]
+   ↓
+{context[:80]}...
+   ↓
+[ AI Reasoning ]
+   ↓
+[ Final Answer ]
+"""
 
 # =======================
-# 🔹 MULTI-AGENT (PERFECT LANG)
+# 🔹 MULTI AGENT (REASONING)
 # =======================
-def multi_agent(query, context, lang1, lang2, dual_mode):
+def multi_agent(query, context, lang1, lang2, dual, mode):
 
-    base_prompt = f"""
-    Use document content to answer clearly.
+    def build_prompt():
+        return f"""
+You are an AI assistant.
 
-    Context:
-    {context}
+Rules:
+- Do NOT copy text
+- Think step-by-step
+- Explain clearly
 
-    Question:
-    {query}
-    """
+FORMAT:
 
-    # ✅ SINGLE MODE
-    if not dual_mode:
-        result = query_hf(base_prompt, lang1)
-        return result if result else fallback_answer(context, lang1)
+✅ Step-by-step Explanation:
+1. Understand question
+2. Extract meaning
+3. Explain clearly
 
-    # ✅ DUAL MODE (SAFE)
-    res1 = query_hf(base_prompt, lang1)
-    res2 = query_hf(base_prompt, lang2)
+✅ Final Answer:
+Short answer
 
-    if not res1:
-        res1 = fallback_answer(context, lang1)
+Context:
+{context}
 
-    if not res2:
-        res2 = fallback_answer(context, lang2)
+Question:
+{query}
+"""
+
+    prompt = build_prompt()
+
+    # SINGLE MODE
+    if not dual:
+        res = generate_ai(prompt, lang1, mode)
+        diagram = generate_diagram(context)
+
+        return f"""
+{res if res else context[:200]}
+
+{diagram}
+"""
+
+    # DUAL MODE
+    r1 = generate_ai(prompt, lang1, mode)
+    r2 = generate_ai(prompt, lang2, mode)
+
+    diagram = generate_diagram(context)
 
     return f"""
 ### 🌐 {lang1}
-{res1}
+{r1 if r1 else context[:200]}
 
 ---
 
 ### 🌐 {lang2}
-{res2}
+{r2 if r2 else context[:200]}
+
+{diagram}
 """
 
 # =======================
-# 🔹 FAST TYPING
+# 🔹 STREAMING
 # =======================
 def typing_effect(text):
     placeholder = st.empty()
     out = ""
-
     for ch in text:
         out += ch
         placeholder.markdown(out)
-        time.sleep(0.0015)
+        time.sleep(0.001)
 
 # =======================
-# 🔹 UI (PREMIUM)
+# 🔹 UI
 # =======================
-
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
 <style>
 body {
     background: linear-gradient(270deg,#020617,#0f172a,#020617);
-    background-size: 600% 600%;
-    animation: gradient 10s ease infinite;
+    background-size:600% 600%;
+    animation: gradient 10s infinite;
 }
-
 @keyframes gradient {
-    0%{background-position:0% 50%}
-    50%{background-position:100% 50%}
-    100%{background-position:0% 50%}
+    50% {background-position:100% 50%;}
 }
-
-.glass {
-    background: rgba(255,255,255,0.07);
-    border-radius: 16px;
-    padding: 20px;
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
 .robot {
-    font-size: 50px;
+    font-size:50px;
     text-align:center;
     animation: float 3s infinite;
 }
-
 @keyframes float {
-    50%{transform: translateY(-10px);}
+    50%{transform:translateY(-10px);}
+}
+.glass {
+    background:rgba(255,255,255,0.08);
+    padding:20px;
+    border-radius:16px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -199,8 +244,8 @@ st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="glass">
-<h2 style='text-align:center;'>ChatDocAI</h2>
-<p style='text-align:center;'>Perfect multilingual AI assistant 🌍</p>
+<h2 style="text-align:center;">ChatDocAI</h2>
+<p style="text-align:center;">Ultimate AI Assistant (Hybrid + Visual + Multilingual)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -209,18 +254,18 @@ st.sidebar.title("⚙️ Settings")
 
 lang1 = st.sidebar.selectbox(
     "Primary Language",
-    ["English", "Hindi", "Tamil", "Spanish", "French"]
+    ["English","Hindi","Tamil","Spanish","French"]
 )
 
-dual_mode = st.sidebar.toggle("🌐 Dual Language Mode")
+dual = st.sidebar.toggle("🌐 Dual Language Mode")
 
 lang2 = st.sidebar.selectbox(
     "Secondary Language",
-    ["English", "Hindi", "Tamil", "Spanish", "French"],
+    ["English","Hindi","Tamil","Spanish","French"],
     index=2
 )
 
-st.sidebar.markdown("💡 Try: Summarize / Explain / Quiz")
+mode = st.sidebar.radio("AI Mode", ["Hybrid","Offline AI","Online AI"])
 
 # Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
@@ -229,27 +274,22 @@ uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Chat display
+# Display chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# =======================
-# 🔹 MAIN
-# =======================
+# MAIN
 if uploaded_file:
 
     docs = process_document(uploaded_file.read())
     st.success("✅ Document ready!")
 
-    user_input = st.chat_input("Ask anything...")
+    user_input = st.chat_input("Ask anything about your document...")
 
     if user_input:
 
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        st.session_state.messages.append({"role":"user","content":user_input})
 
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -264,25 +304,15 @@ if uploaded_file:
                     context,
                     lang1,
                     lang2,
-                    dual_mode
+                    dual,
+                    mode
                 )
-
-                # ✅ safety retry
-                if not response:
-                    time.sleep(2)
-                    response = multi_agent(
-                        user_input,
-                        context,
-                        lang1,
-                        lang2,
-                        dual_mode
-                    )
 
                 typing_effect(response)
 
                 st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": response
+                    "role":"assistant",
+                    "content":response
                 })
 
         with st.expander("📄 Context Used"):
