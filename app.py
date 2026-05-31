@@ -14,13 +14,13 @@ MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 SESSION CACHE
+# 🔹 CACHE
 # =======================
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 # =======================
-# 🔹 API CALL (DUAL-LANG READY)
+# 🔹 STRONG TRANSLATION FUNCTION ✅
 # =======================
 def query_hf(prompt, lang):
 
@@ -28,9 +28,19 @@ def query_hf(prompt, lang):
     if cache_key in st.session_state.cache:
         return st.session_state.cache[cache_key]
 
+    # ✅ Strong instruction fix
+    if lang == "English":
+        instruction = "Answer clearly in English."
+    else:
+        instruction = f"""
+        Translate the answer fully into {lang}.
+        DO NOT use English at all.
+        Use simple and natural {lang}.
+        """
+
     payload = {
-        "inputs": f"Answer ONLY in {lang}:\n{prompt}",
-        "parameters": {"max_new_tokens": 100, "temperature": 0.5}
+        "inputs": f"{instruction}\n{prompt}",
+        "parameters": {"max_new_tokens": 120, "temperature": 0.4}
     }
 
     for _ in range(5):
@@ -38,9 +48,10 @@ def query_hf(prompt, lang):
             res = requests.post(MODEL_URL, headers=headers, json=payload, timeout=15)
 
             if res.status_code == 200:
-                result = res.json()[0]["generated_text"]
-                st.session_state.cache[cache_key] = result
-                return result
+                output = res.json()[0]["generated_text"]
+
+                st.session_state.cache[cache_key] = output
+                return output
         except:
             time.sleep(1)
 
@@ -57,14 +68,12 @@ def process_document(file_bytes):
 
     docs = PyPDFLoader(file_path).load()
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-
     return splitter.split_documents(docs)
 
 # =======================
 # 🔹 RETRIEVAL
 # =======================
 def get_context(docs, query):
-
     q_words = set(query.lower().split())
     scores = []
 
@@ -77,13 +86,30 @@ def get_context(docs, query):
     return "\n".join([x[1] for x in scores[:3]])
 
 # =======================
-# 🔹 MULTI-AGENT (DUAL LANG)
+# 🔹 FALLBACK (TRANSLATED ✅)
+# =======================
+def fallback_answer(context, lang):
+
+    short_context = context[:300]
+
+    fallback_prompt = f"""
+    Explain this in {lang}:
+
+    {short_context}
+    """
+
+    result = query_hf(fallback_prompt, lang)
+
+    return result if result else short_context
+
+# =======================
+# 🔹 MULTI-AGENT (PERFECT LANG)
 # =======================
 def multi_agent(query, context, lang1, lang2, dual_mode):
 
-    q = query.lower()
-
     base_prompt = f"""
+    Use document content to answer clearly.
+
     Context:
     {context}
 
@@ -94,17 +120,17 @@ def multi_agent(query, context, lang1, lang2, dual_mode):
     # ✅ SINGLE MODE
     if not dual_mode:
         result = query_hf(base_prompt, lang1)
-        return result or context[:300]
+        return result if result else fallback_answer(context, lang1)
 
-    # ✅ DUAL LANGUAGE MODE
+    # ✅ DUAL MODE (SAFE)
     res1 = query_hf(base_prompt, lang1)
     res2 = query_hf(base_prompt, lang2)
 
     if not res1:
-        res1 = context[:200]
+        res1 = fallback_answer(context, lang1)
 
     if not res2:
-        res2 = context[:200]
+        res2 = fallback_answer(context, lang2)
 
     return f"""
 ### 🌐 {lang1}
@@ -117,7 +143,7 @@ def multi_agent(query, context, lang1, lang2, dual_mode):
 """
 
 # =======================
-# 🔹 STREAMING EFFECT
+# 🔹 FAST TYPING
 # =======================
 def typing_effect(text):
     placeholder = st.empty()
@@ -129,19 +155,17 @@ def typing_effect(text):
         time.sleep(0.0015)
 
 # =======================
-# 🔹 UI (ADVANCED TECH DESIGN)
+# 🔹 UI (PREMIUM)
 # =======================
 
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
 <style>
-
-/* 🌊 Animated gradient */
-html, body {
+body {
     background: linear-gradient(270deg,#020617,#0f172a,#020617);
     background-size: 600% 600%;
-    animation: gradient 12s ease infinite;
+    animation: gradient 10s ease infinite;
 }
 
 @keyframes gradient {
@@ -150,103 +174,62 @@ html, body {
     100%{background-position:0% 50%}
 }
 
-/* 🧊 Glass container */
 .glass {
     background: rgba(255,255,255,0.07);
     border-radius: 16px;
     padding: 20px;
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
-/* 🤖 Floating robot */
 .robot {
-    font-size: 52px;
+    font-size: 50px;
     text-align:center;
-    animation: float 2.5s infinite;
+    animation: float 3s infinite;
 }
 
 @keyframes float {
-    50%{transform: translateY(-8px);}
+    50%{transform: translateY(-10px);}
 }
-
-/* Chat animation */
-.stChatMessage {
-    animation: fade 0.3s ease-in;
-}
-@keyframes fade {
-    from{opacity:0} to{opacity:1}
-}
-
-/* Title glow */
-.title {
-    text-align:center;
-    font-size:30px;
-    color:#e2e8f0;
-}
-
-.subtitle {
-    text-align:center;
-    color:#94a3b8;
-    font-size:14px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# 🤖 header
+# Header
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="glass">
-<div class="title">ChatDocAI</div>
-<div class="subtitle">AI-powered multi-language document assistant ⚡</div>
+<h2 style='text-align:center;'>ChatDocAI</h2>
+<p style='text-align:center;'>Perfect multilingual AI assistant 🌍</p>
 </div>
 """, unsafe_allow_html=True)
 
-# =======================
-# 🔹 SIDEBAR
-# =======================
-
+# Sidebar
 st.sidebar.title("⚙️ Settings")
 
-# Primary language
 lang1 = st.sidebar.selectbox(
     "Primary Language",
     ["English", "Hindi", "Tamil", "Spanish", "French"]
 )
 
-# Dual mode toggle
 dual_mode = st.sidebar.toggle("🌐 Dual Language Mode")
 
-# Secondary language
 lang2 = st.sidebar.selectbox(
     "Secondary Language",
     ["English", "Hindi", "Tamil", "Spanish", "French"],
-    index=1
+    index=2
 )
 
-st.sidebar.markdown("---")
-st.sidebar.write("💡 Try:")
-st.sidebar.write("• Summarize")
-st.sidebar.write("• Quiz")
-st.sidebar.write("• Explain")
+st.sidebar.markdown("💡 Try: Summarize / Explain / Quiz")
 
-# =======================
-# 🔹 UPLOAD
-# =======================
-
+# Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 
-# =======================
-# 🔹 MEMORY
-# =======================
-
+# Memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# show chat
+# Chat display
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -254,13 +237,12 @@ for msg in st.session_state.messages:
 # =======================
 # 🔹 MAIN
 # =======================
-
 if uploaded_file:
 
     docs = process_document(uploaded_file.read())
     st.success("✅ Document ready!")
 
-    user_input = st.chat_input("Ask anything about your document...")
+    user_input = st.chat_input("Ask anything...")
 
     if user_input:
 
@@ -285,9 +267,16 @@ if uploaded_file:
                     dual_mode
                 )
 
-                # fallback
+                # ✅ safety retry
                 if not response:
-                    response = context[:300]
+                    time.sleep(2)
+                    response = multi_agent(
+                        user_input,
+                        context,
+                        lang1,
+                        lang2,
+                        dual_mode
+                    )
 
                 typing_effect(response)
 
