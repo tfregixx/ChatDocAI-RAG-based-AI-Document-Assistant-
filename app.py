@@ -6,16 +6,12 @@ import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 
-# ✅ Embeddings (NEW)
-from sentence_transformers import SentenceTransformer
-import numpy as np
-
 # =======================
 # 🔹 CONFIG
 # =======================
 HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
-
 MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
@@ -25,20 +21,10 @@ if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 # =======================
-# 🔹 EMBEDDING MODEL ✅
-# =======================
-@st.cache_resource
-def load_embedding_model():
-    return SentenceTransformer('all-MiniLM-L6-v2')
-
-embed_model = load_embedding_model()
-
-# =======================
-# 🔹 API CALL (WITH CACHE ✅)
+# 🔹 SAFE API CALL (CACHED)
 # =======================
 def query_huggingface(prompt):
 
-    # ✅ SESSION CACHE HIT
     if prompt in st.session_state.cache:
         return st.session_state.cache[prompt]
 
@@ -58,8 +44,6 @@ def query_huggingface(prompt):
 
             if response.status_code == 200:
                 result = response.json()[0]["generated_text"]
-
-                # ✅ SAVE TO CACHE
                 st.session_state.cache[prompt] = result
                 return result
 
@@ -69,10 +53,10 @@ def query_huggingface(prompt):
         except:
             time.sleep(2)
 
-    return "⚡ AI is preparing... please retry."
+    return "⚡ AI is preparing... please try again."
 
 # =======================
-# 🔹 DOCUMENT PROCESSING
+# 🔹 DOCUMENT PROCESSING ✅
 # =======================
 @st.cache_resource
 def process_document(file_bytes):
@@ -84,47 +68,43 @@ def process_document(file_bytes):
     docs = loader.load()
 
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    chunks = splitter.split_documents(docs)
-
-    texts = [c.page_content for c in chunks]
-
-    # ✅ CREATE EMBEDDINGS
-    embeddings = embed_model.encode(texts)
-
-    return texts, embeddings
+    return splitter.split_documents(docs)
 
 # =======================
-# 🔹 SEMANTIC RETRIEVAL ✅
+# 🔹 LIGHTWEIGHT RETRIEVAL ✅
 # =======================
-def get_context(texts, embeddings, query):
+def get_context(docs, query):
 
-    query_embedding = embed_model.encode([query])[0]
+    query_words = set(query.lower().split())
+    scored = []
 
-    # cosine similarity
-    scores = np.dot(embeddings, query_embedding)
+    for doc in docs:
+        content = doc.page_content
+        content_words = set(content.lower().split())
 
-    top_indices = np.argsort(scores)[-3:][::-1]
+        score = len(query_words.intersection(content_words))
+        scored.append((score, content))
 
-    return "\n".join([texts[i] for i in top_indices])
+    scored.sort(reverse=True)
+    return "\n".join([doc for _, doc in scored[:3]])
 
 # =======================
 # 🔹 OFFLINE MODE ✅
 # =======================
 def offline_answer(context, query):
-
     return f"""
-    📄 Based on document:
+📄 Based on your document:
 
-    {context[:500]}
+{context[:400]}
 
-    ✅ Answer:
-    The document discusses concepts related to your question. Please review the highlighted context.
-    """
+✅ Answer:
+Relevant information is shown above. You can review it for your question.
+"""
 
 # =======================
-# 🔹 MULTI AGENT ✅
+# 🔹 MULTI-AGENT ✅
 # =======================
-def multi_agent(query, context, lang, history, offline):
+def multi_agent(query, context, lang, offline):
 
     if offline:
         return offline_answer(context, query)
@@ -136,7 +116,7 @@ def multi_agent(query, context, lang, history, offline):
 
     elif "quiz" in q:
         summary = query_huggingface(f"Summarize in {lang}: {context}")
-        return query_huggingface(f"Create quiz in {lang}: {summary}")
+        return query_huggingface(f"Create quiz questions in {lang}: {summary}")
 
     else:
         return query_huggingface(f"""
@@ -150,14 +130,15 @@ def multi_agent(query, context, lang, history, offline):
         """)
 
 # =======================
-# 🔹 TYPING EFFECT
+# 🔹 TYPING EFFECT ✅
 # =======================
 def typing_effect(text):
     placeholder = st.empty()
-    msg = ""
+    output = ""
+
     for ch in text:
-        msg += ch
-        placeholder.markdown(msg)
+        output += ch
+        placeholder.markdown(output)
         time.sleep(0.002)
 
 # =======================
@@ -168,6 +149,8 @@ st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
 <style>
+
+/* 🌊 Animated gradient background */
 body {
     background: linear-gradient(270deg,#1e293b,#020617,#1e293b);
     background-size: 600% 600%;
@@ -175,14 +158,24 @@ body {
 }
 
 @keyframes gradientMove {
-    0%{background-position:0 50%}
+    0%{background-position:0% 50%}
     50%{background-position:100% 50%}
-    100%{background-position:0 50%}
+    100%{background-position:0% 50%}
 }
 
+/* 🧊 Glass */
+.glass {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    padding:20px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,0.1);
+}
+
+/* 🤖 Robot */
 .robot {
-    font-size: 50px;
-    text-align: center;
+    font-size:50px;
+    text-align:center;
     animation: float 3s infinite;
 }
 
@@ -190,22 +183,17 @@ body {
     50%{transform: translateY(-10px);}
 }
 
-.glass {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(12px);
-    padding:20px;
-    border-radius:16px;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# UI header
+# 🤖 Robot
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
+# Header
 st.markdown("""
 <div class="glass">
 <h2 style='text-align:center;'>ChatDocAI</h2>
-<p style='text-align:center;'>AI that understands your documents 🧠</p>
+<p style='text-align:center;'>AI that chats with your documents intelligently ✨</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -217,8 +205,12 @@ language = st.sidebar.selectbox(
     ["English", "Tamil", "Hindi", "Spanish", "French"]
 )
 
-# ✅ OFFLINE SWITCH
 offline_mode = st.sidebar.toggle("⚡ Offline Mode", value=False)
+
+st.sidebar.markdown("💡 Try:")
+st.sidebar.write("• Summarize")
+st.sidebar.write("• Quiz")
+st.sidebar.write("• Explain")
 
 # Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
@@ -227,26 +219,31 @@ uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat
+# Show chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # =======================
-# 🔹 MAIN
+# 🔹 MAIN APP
 # =======================
+
 if uploaded_file:
 
     file_bytes = uploaded_file.read()
-    texts, embeddings = process_document(file_bytes)
 
-    st.success("✅ Document processed")
+    docs = process_document(file_bytes)
 
-    user_input = st.chat_input("Ask anything...")
+    st.success("✅ Document processed successfully")
+
+    # warm-up
+    query_huggingface("hello")
+
+    user_input = st.chat_input("Ask anything about your document...")
 
     if user_input:
 
-        st.session_state.messages.append({"role":"user","content":user_input})
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -254,21 +251,30 @@ if uploaded_file:
         with st.chat_message("assistant"):
             with st.spinner("🤖 Thinking..."):
 
-                context = get_context(texts, embeddings, user_input)
+                context = get_context(docs, user_input)
 
                 response = multi_agent(
                     user_input,
                     context,
                     language,
-                    "",
                     offline_mode
                 )
+
+                # auto retry
+                if "preparing" in response.lower():
+                    time.sleep(2)
+                    response = multi_agent(
+                        user_input,
+                        context,
+                        language,
+                        offline_mode
+                    )
 
                 typing_effect(response)
 
                 st.session_state.messages.append({
-                    "role":"assistant",
-                    "content":response
+                    "role": "assistant",
+                    "content": response
                 })
 
         with st.expander("📄 Context Used"):
