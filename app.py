@@ -14,50 +14,37 @@ MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # =======================
-# 🔹 SESSION CACHE ⚡
+# 🔹 SESSION CACHE
 # =======================
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
-if "warm" not in st.session_state:
-    st.session_state.warm = False
-
 # =======================
-# 🔹 FAST API CALL
+# 🔹 API CALL (DUAL-LANG READY)
 # =======================
-def query_huggingface(prompt):
+def query_hf(prompt, lang):
 
-    # ✅ CACHE HIT → instant
-    if prompt in st.session_state.cache:
-        return st.session_state.cache[prompt]
+    cache_key = f"{lang}_{prompt}"
+    if cache_key in st.session_state.cache:
+        return st.session_state.cache[cache_key]
 
     payload = {
-        "inputs": prompt,
+        "inputs": f"Answer ONLY in {lang}:\n{prompt}",
         "parameters": {"max_new_tokens": 100, "temperature": 0.5}
     }
 
-    for _ in range(5):  # strong retry
+    for _ in range(5):
         try:
-            response = requests.post(
-                MODEL_URL,
-                headers=headers,
-                json=payload,
-                timeout=15
-            )
+            res = requests.post(MODEL_URL, headers=headers, json=payload, timeout=15)
 
-            if response.status_code == 200:
-                result = response.json()[0]["generated_text"]
-
-                st.session_state.cache[prompt] = result
+            if res.status_code == 200:
+                result = res.json()[0]["generated_text"]
+                st.session_state.cache[cache_key] = result
                 return result
-
-            elif response.status_code == 503:
-                time.sleep(2)
-
         except:
             time.sleep(1)
 
-    return None  # ✅ no error text
+    return None
 
 # =======================
 # 🔹 DOCUMENT PROCESSING
@@ -68,108 +55,115 @@ def process_document(file_bytes):
         tmp.write(file_bytes)
         file_path = tmp.name
 
-    loader = PyPDFLoader(file_path)
-    docs = loader.load()
-
+    docs = PyPDFLoader(file_path).load()
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+
     return splitter.split_documents(docs)
 
 # =======================
-# 🔹 FAST RETRIEVAL
+# 🔹 RETRIEVAL
 # =======================
 def get_context(docs, query):
-    query_words = set(query.lower().split())
+
+    q_words = set(query.lower().split())
     scores = []
 
     for doc in docs:
         words = set(doc.page_content.lower().split())
-        score = len(query_words & words)
+        score = len(q_words & words)
         scores.append((score, doc.page_content))
 
     scores.sort(reverse=True)
-
     return "\n".join([x[1] for x in scores[:3]])
 
 # =======================
-# 🔹 OFFLINE FALLBACK
+# 🔹 MULTI-AGENT (DUAL LANG)
 # =======================
-def offline_answer(context):
-    return f"""
-📄 Quick answer based on document:
-
-{context[:300]}
-
-✅ Tip: Try asking more specific questions for better results.
-"""
-
-# =======================
-# 🔹 AGENT SYSTEM
-# =======================
-def multi_agent(query, context, lang):
+def multi_agent(query, context, lang1, lang2, dual_mode):
 
     q = query.lower()
 
-    if "summarize" in q:
-        return query_huggingface(f"Summarize in {lang}: {context}")
+    base_prompt = f"""
+    Context:
+    {context}
 
-    elif "quiz" in q:
-        summary = query_huggingface(f"Summarize in {lang}: {context}")
-        return query_huggingface(f"Create 3 quiz questions in {lang}: {summary}")
+    Question:
+    {query}
+    """
 
-    else:
-        return query_huggingface(f"""
-        Answer in {lang}
+    # ✅ SINGLE MODE
+    if not dual_mode:
+        result = query_hf(base_prompt, lang1)
+        return result or context[:300]
 
-        Context:
-        {context}
+    # ✅ DUAL LANGUAGE MODE
+    res1 = query_hf(base_prompt, lang1)
+    res2 = query_hf(base_prompt, lang2)
 
-        Question:
-        {query}
-        """)
+    if not res1:
+        res1 = context[:200]
+
+    if not res2:
+        res2 = context[:200]
+
+    return f"""
+### 🌐 {lang1}
+{res1}
+
+---
+
+### 🌐 {lang2}
+{res2}
+"""
 
 # =======================
-# 🔹 FAST STREAMING UI
+# 🔹 STREAMING EFFECT
 # =======================
 def typing_effect(text):
-    if not text:
-        return
     placeholder = st.empty()
-    for i in range(len(text)):
-        placeholder.markdown(text[:i+1])
-        time.sleep(0.0015)  # ⚡ VERY FAST
-# =======================
+    out = ""
+
+    for ch in text:
+        out += ch
+        placeholder.markdown(out)
+        time.sleep(0.0015)
 
 # =======================
-# 🔹 UI
+# 🔹 UI (ADVANCED TECH DESIGN)
 # =======================
+
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
 <style>
 
-body {
-    background: linear-gradient(270deg,#1e293b,#020617,#1e293b);
+/* 🌊 Animated gradient */
+html, body {
+    background: linear-gradient(270deg,#020617,#0f172a,#020617);
     background-size: 600% 600%;
-    animation: gradientMove 10s ease infinite;
+    animation: gradient 12s ease infinite;
 }
 
-@keyframes gradientMove {
+@keyframes gradient {
     0%{background-position:0% 50%}
     50%{background-position:100% 50%}
     100%{background-position:0% 50%}
 }
 
+/* 🧊 Glass container */
 .glass {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.07);
     border-radius: 16px;
     padding: 20px;
+    backdrop-filter: blur(14px);
     border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
+/* 🤖 Floating robot */
 .robot {
-    font-size: 50px;
-    text-align: center;
+    font-size: 52px;
+    text-align:center;
     animation: float 2.5s infinite;
 }
 
@@ -177,35 +171,82 @@ body {
     50%{transform: translateY(-8px);}
 }
 
+/* Chat animation */
+.stChatMessage {
+    animation: fade 0.3s ease-in;
+}
+@keyframes fade {
+    from{opacity:0} to{opacity:1}
+}
+
+/* Title glow */
+.title {
+    text-align:center;
+    font-size:30px;
+    color:#e2e8f0;
+}
+
+.subtitle {
+    text-align:center;
+    color:#94a3b8;
+    font-size:14px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-# 🤖 UI header
+# 🤖 header
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="glass">
-<h2 style='text-align:center;'>ChatDocAI</h2>
-<p style='text-align:center;'>Talk to your documents instantly ⚡</p>
+<div class="title">ChatDocAI</div>
+<div class="subtitle">AI-powered multi-language document assistant ⚡</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar
+# =======================
+# 🔹 SIDEBAR
+# =======================
+
 st.sidebar.title("⚙️ Settings")
 
-language = st.sidebar.selectbox(
-    "🌐 Language",
-    ["English", "Tamil", "Hindi", "Spanish", "French"]
+# Primary language
+lang1 = st.sidebar.selectbox(
+    "Primary Language",
+    ["English", "Hindi", "Tamil", "Spanish", "French"]
 )
 
-# Upload
+# Dual mode toggle
+dual_mode = st.sidebar.toggle("🌐 Dual Language Mode")
+
+# Secondary language
+lang2 = st.sidebar.selectbox(
+    "Secondary Language",
+    ["English", "Hindi", "Tamil", "Spanish", "French"],
+    index=1
+)
+
+st.sidebar.markdown("---")
+st.sidebar.write("💡 Try:")
+st.sidebar.write("• Summarize")
+st.sidebar.write("• Quiz")
+st.sidebar.write("• Explain")
+
+# =======================
+# 🔹 UPLOAD
+# =======================
+
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 
-# Memory
+# =======================
+# 🔹 MEMORY
+# =======================
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Chat history
+# show chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -219,13 +260,7 @@ if uploaded_file:
     docs = process_document(uploaded_file.read())
     st.success("✅ Document ready!")
 
-    # ✅ WARM-UP ONCE (CRITICAL SPEED BOOST)
-    if not st.session_state.warm:
-        with st.spinner("⚡ Optimizing AI experience..."):
-            query_huggingface("Explain AI in one line")
-        st.session_state.warm = True
-
-    user_input = st.chat_input("Ask anything...")
+    user_input = st.chat_input("Ask anything about your document...")
 
     if user_input:
 
@@ -245,24 +280,14 @@ if uploaded_file:
                 response = multi_agent(
                     user_input,
                     context,
-                    language
+                    lang1,
+                    lang2,
+                    dual_mode
                 )
 
-                # ✅ AUTO RECOVERY LOOP
+                # fallback
                 if not response:
-                    for _ in range(2):
-                        time.sleep(2)
-                        response = multi_agent(
-                            user_input,
-                            context,
-                            language
-                        )
-                        if response:
-                            break
-
-                # ✅ FINAL FALLBACK
-                if not response:
-                    response = offline_answer(context)
+                    response = context[:300]
 
                 typing_effect(response)
 
