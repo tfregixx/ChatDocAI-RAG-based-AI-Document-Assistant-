@@ -6,31 +6,31 @@ import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 
-# =======================
+# =====================
 # 🔹 CONFIG
-# =======================
-HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
+# =====================
+HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY","")
 HF_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# =======================
+# =====================
 # 🔹 CACHE
-# =======================
+# =====================
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
-# =======================
-# 🔹 OLLAMA (OFFLINE AI)
-# =======================
+# =====================
+# 🔹 OLLAMA (OFFLINE)
+# =====================
 def query_ollama(prompt, lang):
     try:
         res = requests.post(
             OLLAMA_URL,
             json={
                 "model": "llama3",
-                "prompt": f"Answer in {lang}:\n{prompt}",
+                "prompt": f"Answer ONLY in {lang}.\nDo not copy.\n{prompt}",
                 "stream": False
             },
             timeout=30
@@ -41,24 +41,28 @@ def query_ollama(prompt, lang):
         return None
     return None
 
-# =======================
+# =====================
 # 🔹 ONLINE AI
-# =======================
+# =====================
 def query_online(prompt, lang):
 
     cache_key = f"{lang}_{prompt}"
+
     if cache_key in st.session_state.cache:
         return st.session_state.cache[cache_key]
 
     payload = {
         "inputs": f"""
-Answer in {lang}.
-Do NOT copy context.
-Use reasoning.
+Answer ONLY in {lang}.
+Do NOT copy the context.
+Generate a new answer with reasoning.
 
 {prompt}
 """,
-        "parameters": {"max_new_tokens": 200, "temperature": 0.4}
+        "parameters": {
+            "max_new_tokens": 200,
+            "temperature": 0.4
+        }
     }
 
     try:
@@ -73,25 +77,36 @@ Use reasoning.
 
     return None
 
-# =======================
-# 🔹 HYBRID AI
-# =======================
+# =====================
+# 🔹 HYBRID ROUTER
+# =====================
 def generate_ai(prompt, lang, mode):
 
+    final_prompt = f"""
+You are an intelligent assistant.
+
+Rules:
+- Do NOT copy text
+- Think step-by-step
+- Give structured answer
+
+{prompt}
+"""
+
     if mode == "Offline AI":
-        return query_ollama(prompt, lang)
+        return query_ollama(final_prompt, lang)
 
     elif mode == "Online AI":
-        return query_online(prompt, lang)
+        return query_online(final_prompt, lang)
 
     elif mode == "Hybrid":
-        return query_ollama(prompt, lang) or query_online(prompt, lang)
+        return query_ollama(final_prompt, lang) or query_online(final_prompt, lang)
 
     return None
 
-# =======================
-# 🔹 DOC PROCESSING
-# =======================
+# =====================
+# 🔹 DOCUMENT PROCESS
+# =====================
 @st.cache_resource
 def process_document(file_bytes):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -102,104 +117,96 @@ def process_document(file_bytes):
     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     return splitter.split_documents(docs)
 
-# =======================
+# =====================
 # 🔹 RETRIEVAL
-# =======================
+# =====================
 def get_context(docs, query):
     words = set(query.lower().split())
-    scores = []
+    scored = []
 
     for doc in docs:
         content_words = set(doc.page_content.lower().split())
         score = len(words & content_words)
-        scores.append((score, doc.page_content))
+        scored.append((score, doc.page_content))
 
-    scores.sort(reverse=True)
-    return "\n".join([x[1] for x in scores[:3]])
+    scored.sort(reverse=True)
+    return "\n".join([x[1] for x in scored[:3]])
 
-# =======================
-# 🔹 DIAGRAM GENERATOR ✅
-# =======================
-def generate_diagram(context):
-    return f"""
-📊 Diagram:
+# =====================
+# 🔹 DIAGRAM
+# =====================
+def generate_diagram():
+    return """
+📊 Flow:
 
-[ Question ]
-   ↓
-[ Extract Context ]
-   ↓
-{context[:80]}...
-   ↓
-[ AI Reasoning ]
-   ↓
-[ Final Answer ]
+User Query → Context Extraction → AI Reasoning → Final Answer
 """
 
-# =======================
-# 🔹 MULTI AGENT (REASONING)
-# =======================
+# =====================
+# 🔹 MULTI AGENT (FIXED ✅)
+# =====================
 def multi_agent(query, context, lang1, lang2, dual, mode):
 
-    def build_prompt():
-        return f"""
-You are an AI assistant.
+    q = query.lower()
 
-Rules:
-- Do NOT copy text
-- Think step-by-step
-- Explain clearly
+    if "summarize" in q:
+        task = "Summarize in 3 simple bullet points."
+    elif "quiz" in q:
+        task = "Generate 3 quiz questions with answers."
+    elif "explain" in q:
+        task = "Explain step-by-step clearly."
+    else:
+        task = "Answer clearly."
+
+    prompt = f"""
+TASK:
+{task}
+
+CONTEXT:
+{context}
+
+QUESTION:
+{query}
 
 FORMAT:
 
 ✅ Step-by-step Explanation:
-1. Understand question
+1. Explain logically
 2. Extract meaning
-3. Explain clearly
+3. Connect ideas
 
 ✅ Final Answer:
-Short answer
-
-Context:
-{context}
-
-Question:
-{query}
+Short, clear answer
 """
 
-    prompt = build_prompt()
-
-    # SINGLE MODE
+    # ✅ SINGLE MODE
     if not dual:
         res = generate_ai(prompt, lang1, mode)
-        diagram = generate_diagram(context)
 
-        return f"""
-{res if res else context[:200]}
+        if not res:
+            res = "⚠️ Could not generate answer."
 
-{diagram}
-"""
+        return res + "\n\n" + generate_diagram()
 
-    # DUAL MODE
+    # ✅ DUAL MODE
     r1 = generate_ai(prompt, lang1, mode)
     r2 = generate_ai(prompt, lang2, mode)
 
-    diagram = generate_diagram(context)
-
     return f"""
 ### 🌐 {lang1}
-{r1 if r1 else context[:200]}
+{r1 if r1 else "No response"}
 
 ---
 
 ### 🌐 {lang2}
-{r2 if r2 else context[:200]}
+{r2 if r2 else "No response"}
 
-{diagram}
+{generate_diagram()}
 """
 
-# =======================
-# 🔹 STREAMING
-# =======================
+# =====================
+# 🔹 STREAM EFFECT
+# =====================
 def typing_effect(text):
     placeholder = st.empty()
     out = ""
@@ -208,9 +215,9 @@ def typing_effect(text):
         placeholder.markdown(out)
         time.sleep(0.001)
 
-# =======================
+# =====================
 # 🔹 UI
-# =======================
+# =====================
 st.set_page_config(page_title="ChatDocAI", layout="wide")
 
 st.markdown("""
@@ -239,13 +246,12 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.markdown('<div class="robot">🤖</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="glass">
 <h2 style="text-align:center;">ChatDocAI</h2>
-<p style="text-align:center;">Ultimate AI Assistant (Hybrid + Visual + Multilingual)</p>
+<p style="text-align:center;">Final AI Assistant (Fixed ✅)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -265,16 +271,19 @@ lang2 = st.sidebar.selectbox(
     index=2
 )
 
-mode = st.sidebar.radio("AI Mode", ["Hybrid","Offline AI","Online AI"])
+mode = st.sidebar.radio(
+    "AI Mode",
+    ["Hybrid","Offline AI","Online AI"]
+)
 
 # Upload
 uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
 
-# Memory
+# Chat memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat
+# Show chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -285,7 +294,7 @@ if uploaded_file:
     docs = process_document(uploaded_file.read())
     st.success("✅ Document ready!")
 
-    user_input = st.chat_input("Ask anything about your document...")
+    user_input = st.chat_input("Ask anything...")
 
     if user_input:
 
