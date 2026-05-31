@@ -3,325 +3,249 @@ import tempfile
 import requests
 import time
 
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
-# =====================
-# ✅ CONFIG (FREE MODELS)
-# =====================
-HF_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY", "")
-HF_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
-OLLAMA_URL = "http://localhost:11434/api/generate"
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
-headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+from langchain_community.llms import Ollama, HuggingFaceHub
 
-# =====================
-# ✅ CACHE (FAST ⚡)
-# =====================
-if "cache" not in st.session_state:
-    st.session_state.cache = {}
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="ChatDOC AI", layout="wide")
 
-# =====================
-# ✅ FALLBACK (ALWAYS WORKS)
-# =====================
-def fallback_answer(context, lang):
-    if lang == "Tamil":
-        return f"""
-✅ விளக்கம்:
-இந்த ஆவணத்தின் அடிப்படையில் AI பற்றிய தகவல் காணப்படுகிறது.
+# ---------------- UI + ANIMATIONS ----------------
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] {
+    background: #020617;
+    color: white;
+}
 
-✅ பதில்:
-AI என்பது மனித புத்திசாலித்தனத்தைப் போன்ற செயல்களை இயந்திரங்கள் செய்ய உதவும் துறை.
-"""
-    else:
-        return f"""
-✅ Explanation:
-The document explains AI concepts.
+/* HERO */
+.hero {
+    text-align: center;
+    padding: 40px;
+}
 
-✅ Answer:
-AI is a field where machines perform tasks requiring human intelligence.
-"""
+.hero h1 {
+    font-size: 45px;
+    background: linear-gradient(90deg, #3b82f6, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 
-# =====================
-# ✅ OLLAMA (OFFLINE FREE)
-# =====================
-def query_ollama(prompt, lang):
-    try:
-        res = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": "mistral",  # ✅ faster than llama3
-                "prompt": f"Answer in {lang}. Be clear.\n{prompt}",
-                "stream": False
-            },
-            timeout=25
-        )
-        if res.status_code == 200:
-            return res.json()["response"]
-    except:
-        return None
+/* ROBOT */
+.robot {
+    display:block;
+    margin:auto;
+    width:160px;
+    animation: float 3s ease-in-out infinite;
+}
 
-    return None
+@keyframes float {
+    0% {transform: translateY(0);}
+    50% {transform: translateY(-12px);}
+    100% {transform: translateY(0);}
+}
 
-# =====================
-# ✅ ONLINE AI (MISTRAL FREE)
-# =====================
-def query_online(prompt, lang):
+/* LOADER */
+.loader {
+    text-align:center;
+    font-size:18px;
+    animation: blink 1s infinite;
+}
+@keyframes blink {
+    0% {opacity:0.3;}
+    50% {opacity:1;}
+    100% {opacity:0.3;}
+}
 
-    cache_key = f"{lang}_{prompt}"
+/* WATERMARK */
+.watermark {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    color: #38bdf8;
+    background: rgba(0,0,0,0.5);
+    padding: 6px 10px;
+    border-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    if cache_key in st.session_state.cache:
-        return st.session_state.cache[cache_key]
+# ---------------- HERO ----------------
+st.markdown("""
+<div class="hero">
+    https://cdn-icons-png.flaticon.com/512/4712/4712109.png
+    <h1>ChatDOC AI 🤖 RegiBot</h1>
+    <p>Your Smart AI Assistant</p>
+</div>
+""", unsafe_allow_html=True)
 
-    payload = {
-        "inputs": f"""
-You are a smart AI assistant.
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("📂 Upload Documents")
 
-RULES:
-- Answer ONLY in {lang}
-- Do NOT copy text
-- Follow format exactly
+uploaded_files = st.sidebar.file_uploader(
+    "Upload PDF / TXT",
+    type=["pdf", "txt"],
+    accept_multiple_files=True
+)
 
-{prompt}
-""",
-        "parameters": {
-            "max_new_tokens": 250,
-            "temperature": 0.5
-        }
-    }
+# ✅ LANGUAGE (Tamil added)
+language = st.sidebar.selectbox(
+    "🌐 Language",
+    ["English", "Tamil", "Hindi", "Spanish", "French"]
+)
 
-    for _ in range(3):
-        try:
-            res = requests.post(HF_URL, headers=headers, json=payload, timeout=25)
+generate_quiz = st.sidebar.button("🎯 Generate Quiz")
 
-            if res.status_code == 200:
-                result = res.json()[0]["generated_text"]
-                st.session_state.cache[cache_key] = result
-                return result
+if st.sidebar.button("🗑 Clear Chat"):
+    st.session_state.chat = []
 
-        except:
-            time.sleep(2)
-
-    return None
-
-# =====================
-# ✅ HYBRID ENGINE
-# =====================
-def generate_ai(prompt, lang, mode):
-
-    for _ in range(2):
-
-        if mode == "Offline AI":
-            res = query_ollama(prompt, lang)
-
-        elif mode == "Online AI":
-            res = query_online(prompt, lang)
-
-        else:  # Hybrid
-            res = query_ollama(prompt, lang) or query_online(prompt, lang)
-
-        if res:
-            return res
-
-        time.sleep(1)
-
-    return None
-
-# =====================
-# ✅ DOC PROCESSING
-# =====================
+# ---------------- EMBEDDINGS ----------------
 @st.cache_resource
-def process_document(file_bytes):
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(file_bytes)
-        file_path = tmp.name
+def get_embeddings():
+    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    docs = PyPDFLoader(file_path).load()
-    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+# ---------------- PROCESS FILES ----------------
+def process_files(files):
+    documents = []
 
-    return splitter.split_documents(docs)
+    for file in files:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(file.read())
+            path = tmp.name
 
-# =====================
-# ✅ CONTEXT SEARCH
-# =====================
-def get_context(docs, query):
-    scores = []
+        loader = PyPDFLoader(path) if file.name.endswith(".pdf") else TextLoader(path)
+        documents.extend(loader.load())
 
-    for doc in docs:
-        score = sum(word in doc.page_content.lower() for word in query.lower().split())
-        scores.append((score, doc.page_content))
+    splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+    docs = splitter.split_documents(documents)
 
-    scores.sort(reverse=True)
+    return Chroma.from_documents(docs, get_embeddings())
 
-    return "\n".join([x[1] for x in scores[:3]])
+# ---------------- LOAD DB ----------------
+db = None
+if uploaded_files:
+    db = process_files(uploaded_files)
 
-# =====================
-# ✅ DIAGRAM
-# =====================
-def diagram():
-    return """
-📊 Flow:
-User Query → Context → AI Processing → Smart Answer
-"""
+# ---------------- MODEL ----------------
+def ollama_running():
+    try:
+        requests.get("http://localhost:11434")
+        return True
+    except:
+        return False
 
-# =====================
-# ✅ MULTI-AGENT (FIXED)
-# =====================
-def multi_agent(query, context, lang1, lang2, dual, mode):
-
-    q = query.lower()
-
-    # ✅ TASK CONTROL
-    if "quiz" in q:
-        prompt = f"""
-Create 3 quiz questions with answers.
-
-FORMAT:
-
-1. Question?
-Answer: ...
-
-2. Question?
-Answer: ...
-
-3. Question?
-Answer: ...
-
-Context:
-{context}
-"""
-
-    elif "summarize" in q:
-        prompt = f"""
-Summarize in 3 bullet points:
-
-• Point 1
-• Point 2
-• Point 3
-
-Context:
-{context}
-"""
-
-    elif "explain" in q:
-        prompt = f"""
-Explain step-by-step.
-
-✅ Steps:
-1. ...
-2. ...
-3. ...
-
-✅ Final Answer:
-...
-
-Context:
-{context}
-"""
-
+def get_llm():
+    if ollama_running():
+        st.sidebar.success("✅ Offline Mode")
+        return Ollama(model="llama3")
     else:
-        prompt = f"""
-Answer clearly in 2-3 sentences.
+        return HuggingFaceHub(repo_id="google/flan-t5-base")
+
+# ---------------- SESSION ----------------
+if "chat" not in st.session_state:
+    st.session_state.chat = []
+
+# ---------------- PROMPT ----------------
+prompt = PromptTemplate.from_template(
+    """Answer in {language}.
 
 Context:
 {context}
 
 Question:
-{query}
+{question}
 """
+)
 
-    def get(lang):
-        res = generate_ai(prompt, lang, mode)
-        return res if res else fallback_answer(context, lang)
+parser = StrOutputParser()
 
-    # ✅ SINGLE MODE
-    if not dual:
-        return get(lang1) + "\n\n" + diagram()
+# ---------------- CHAT ----------------
+st.markdown("## 💬 Chat with RegiBot")
 
-    # ✅ DUAL MODE
-    return f"""
-### 🌐 {lang1}
-{get(lang1)}
+if db:
+    retriever = db.as_retriever(search_kwargs={"k": 5})
+    llm = get_llm()
 
----
+    query = st.chat_input("Ask your question...")
 
-### 🌐 {lang2}
-{get(lang2)}
+    # ✅ QUESTION
+    if query:
+        st.session_state.chat.append(("user", query))
 
-{diagram()}
+        loader = st.empty()
+        loader.markdown('<div class="loader">🤖 RegiBot Thinking...</div>', unsafe_allow_html=True)
+
+        docs = retriever.invoke(query)
+        context = "\n\n".join([d.page_content for d in docs])
+
+        chain = prompt | llm | parser
+        answer = chain.invoke({
+            "context": context,
+            "question": query,
+            "language": language
+        })
+
+        loader.empty()
+        st.session_state.chat.append(("ai", answer, docs))
+
+    # ✅ QUIZ
+    if generate_quiz:
+        loader = st.empty()
+        loader.markdown('<div class="loader">🎯 RegiBot Creating Quiz...</div>', unsafe_allow_html=True)
+
+        docs = retriever.invoke("quiz")
+        context = "\n\n".join([d.page_content for d in docs])
+
+        quiz_prompt = PromptTemplate.from_template(
+            """Create 5 MCQ questions from this content.
+
+Context:
+{context}
 """
+        )
 
-# =====================
-# ✅ FAST STREAM
-# =====================
-def typing_effect(text):
-    box = st.empty()
-    out = ""
-    for ch in text:
-        out += ch
-        box.markdown(out)
-        time.sleep(0.0008)
+        chain = quiz_prompt | llm | parser
+        quiz = chain.invoke({"context": context})
 
-# =====================
-# ✅ UI
-# =====================
-st.set_page_config("ChatDocAI FREE 🚀", layout="wide")
+        loader.empty()
+        st.session_state.chat.append(("ai", quiz, docs))
 
-st.title("🤖 ChatDocAI — Optimized FREE AI ✅")
+    # ✅ DISPLAY CHAT (FIXED ✅)
+    for msg in st.session_state.chat:
+        if msg[0] == "user":
+            st.chat_message("user").write(msg[1])
+        else:
+            with st.chat_message("assistant"):
+                placeholder = st.empty()
+                text = msg[1]
 
-lang1 = st.sidebar.selectbox("Primary Language", ["English","Tamil","Hindi"])
-dual = st.sidebar.toggle("🌐 Dual Language Mode")
-lang2 = st.sidebar.selectbox("Secondary Language", ["English","Tamil","Hindi"])
-mode = st.sidebar.radio("AI Mode", ["Hybrid","Offline AI","Online AI"])
+                shown = ""
+                for ch in text:
+                    shown += ch
+                    placeholder.markdown(shown)
+                    time.sleep(0.01)
 
-uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
+                # ✅ FIXED SOURCES
+                with st.expander("📄 Sources"):
+                    for i, doc in enumerate(msg[2]):
+                        st.write(f"Source {i+1}:")
+                        st.write(doc.page_content[:300] + "...")
 
-# memory
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+else:
+    st.info("Upload documents to start")
 
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.caption("🚀 ChatDOC AI • RegiBot Assistant")
 
-# =====================
-# ✅ MAIN
-# =====================
-if uploaded_file:
-
-    docs = process_document(uploaded_file.read())
-    st.success("✅ Document ready!")
-
-    user_input = st.chat_input("Ask anything...")
-
-    if user_input:
-
-        st.session_state.messages.append({"role":"user","content":user_input})
-
-        with st.chat_message("user"):
-            st.markdown(user_input)
-
-        with st.chat_message("assistant"):
-
-            with st.spinner("🤖 Thinking..."):
-
-                context = get_context(docs, user_input)
-
-                response = multi_agent(
-                    user_input,
-                    context,
-                    lang1,
-                    lang2,
-                    dual,
-                    mode
-                )
-
-                typing_effect(response)
-
-                st.session_state.messages.append({
-                    "role":"assistant",
-                    "content":response
-                })
-
-        with st.expander("📄 Context Used"):
-            st.write(context)
+# ---------------- WATERMARK ----------------
+st.markdown(
+    '<div class="watermark">✨ Made by Preethi Regina S D</div>',
+    unsafe_allow_html=True
+)
