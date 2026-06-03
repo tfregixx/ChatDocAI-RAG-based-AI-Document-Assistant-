@@ -10,7 +10,7 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.llms import HuggingFaceEndpoint
+from langchain_community.llms import HuggingFaceHub
 
 # ---------------- UI ----------------
 st.title("🤖 ChatDocAI – GenAI Document Assistant")
@@ -43,20 +43,22 @@ def get_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # ---------------- MODEL ✅ FIXED --------------------
+import os
+
 @st.cache_resource
 def get_llm():
     token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
     if not token:
-        st.error("⚠️ Missing HuggingFace API token!")
+        st.error("⚠️ HuggingFace API token missing")
         st.stop()
 
-    return HuggingFaceEndpoint(
-        repo_id="google/flan-t5-large",   # ✅ SAFE MODEL
-        temperature=0.5,
-        max_length=512,
-        huggingfacehub_api_token=token
+    return HuggingFaceHub(
+        repo_id="google/flan-t5-base",  # ✅ STABLE MODEL
+        huggingfacehub_api_token=token,
+        model_kwargs={"temperature": 0.5}
     )
+
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
 def load_docs(files):
