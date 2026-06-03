@@ -1,6 +1,6 @@
 import streamlit as st
+import os   # ✅ REQUIRED
 
-# ✅ MUST BE FIRST
 st.set_page_config(page_title="ChatDocAI – RegiBot", layout="wide")
 
 import tempfile
