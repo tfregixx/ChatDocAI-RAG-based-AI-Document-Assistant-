@@ -1,6 +1,8 @@
 import streamlit as st
 
-st.write("✅ Running correctly")
+# ✅ MUST BE FIRST STREAMLIT COMMAND
+st.set_page_config(page_title="ChatDocAI – RegiBot", layout="wide")
+
 import tempfile
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -10,11 +12,10 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.llms import HuggingFaceHub
 
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="ChatDocAI – RegiBot", layout="wide")
+# ✅ Debug check
+st.write("✅ App Loaded Successfully")
 
-st.write("✅ App Loaded Successfully")  # Debug indicator
-
+# ---------------- UI ----------------
 st.title("🤖 ChatDocAI – GenAI Document Assistant")
 st.caption("RAG | LLM | LangChain")
 
@@ -33,6 +34,9 @@ language = st.sidebar.selectbox(
 )
 
 generate_quiz = st.sidebar.button("🎯 Generate Quiz")
+
+if st.sidebar.button("🗑 Clear Chat"):
+    st.session_state.chat = []
 
 # ---------------- SESSION ----------------
 if "chat" not in st.session_state:
@@ -64,7 +68,6 @@ def load_docs(files):
                 texts.append(d.page_content)
 
         return texts
-
     except Exception as e:
         st.error(f"⚠️ Error loading files: {e}")
         return []
@@ -82,11 +85,11 @@ def get_relevant_docs(query, texts):
 
         return [texts[i] for i in top_indices]
 
-    except Exception as e:
+    except Exception:
         st.error("⚠️ Retrieval failed")
         return []
 
-# ---------------- MODEL (SAFE ✅) ----------------
+# ---------------- MODEL ----------------
 @st.cache_resource
 def get_llm():
     try:
@@ -94,8 +97,8 @@ def get_llm():
             repo_id="google/flan-t5-base",
             model_kwargs={"temperature": 0.5}
         )
-    except Exception as e:
-        st.error("⚠️ HuggingFace model failed. Check API token in Secrets.")
+    except:
+        st.error("⚠️ HuggingFace model failed. Add API token in Secrets.")
         st.stop()
 
 # ---------------- PROMPT ----------------
@@ -140,8 +143,8 @@ if uploaded_files:
                     "question": query,
                     "language": language
                 })
-            except Exception:
-                answer = "⚠️ Error generating response (check API key or model)"
+            except:
+                answer = "⚠️ Error generating response. Check API key."
 
         st.session_state.chat.append(("ai", answer, docs))
 
@@ -152,7 +155,7 @@ if uploaded_files:
             context = "\n\n".join(docs)
 
             quiz_prompt = PromptTemplate.from_template(
-                "Create 5 MCQ questions from the context:\n{context}"
+                "Create 5 MCQ questions from:\n{context}"
             )
 
             try:
