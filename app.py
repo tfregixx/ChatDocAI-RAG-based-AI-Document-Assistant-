@@ -42,23 +42,20 @@ if "chat" not in st.session_state:
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# ---------------- MODEL ✅ FIXED ----------------
-
-import os
+# ---------------- MODEL ✅ FIXED --------------------
 @st.cache_resource
 def get_llm():
     token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
     if not token:
-        st.error("⚠️ Missing HuggingFace API Token! Add it in Secrets.")
+        st.error("⚠️ Missing HuggingFace API token!")
         st.stop()
 
     return HuggingFaceEndpoint(
-        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
-        temperature=0.7,
-        max_new_tokens=512,  # Moderated down slightly to prevent payload timeout drops
-        huggingfacehub_api_token=token,
-        timeout=300          # Gives the network a 5-minute window to resolve before breaking
+        repo_id="google/flan-t5-large",   # ✅ SAFE MODEL
+        temperature=0.5,
+        max_length=512,
+        huggingfacehub_api_token=token
     )
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
