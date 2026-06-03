@@ -1,82 +1,29 @@
+import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 import streamlit as st
 import tempfile
 import time
-import requests
 
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
 
+# ✅ USE FAISS INSTEAD OF CHROMA (MORE STABLE ✅)
+from langchain_community.vectorstores import FAISS
+
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
 from langchain_community.llms import HuggingFaceHub
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="ChatDOC AI", layout="wide")
 
-# ---------------- UI STYLES ----------------
-st.markdown("""
-<style>
-[data-testid="stAppViewContainer"] {
-    background: #020617;
-    color: white;
-}
-
-.hero {
-    text-align: center;
-    padding: 30px;
-}
-
-.robot {
-    display:block;
-    margin:auto;
-    width:120px;
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-    0% {transform: translateY(0px);}
-    50% {transform: translateY(-12px);}
-    100% {transform: translateY(0px);}
-}
-
-.loader {
-    text-align:center;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink {
-    0% {opacity:0.3;}
-    50% {opacity:1;}
-    100% {opacity:0.3;}
-}
-
-.watermark {
-    position: fixed;
-    bottom: 15px;
-    right: 15px;
-    color: #38bdf8;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- HERO ----------------
-st.markdown("""
-<div class="hero">
-    <img src="https://cdn-icons-png.flaticon.com/512/4712/4712109.png" class="robot">
-    <h1>ChatDOC AI 🤖 RegiBot</h1>
-    <p>Your Smart AI Assistant</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ✅ Welcome Message
-st.info("👋 Welcome to ChatDOC AI! Upload a document and start chatting.")
+# ---------------- UI ----------------
+st.title("🤖 ChatDOC AI – RegiBot")
+st.info("Upload a document and chat with it")
 
 # ---------------- SIDEBAR ----------------
-st.sidebar.title("📂 Upload Documents")
-
 uploaded_files = st.sidebar.file_uploader(
     "Upload PDF or TXT",
     type=["pdf", "txt"],
@@ -84,21 +31,18 @@ uploaded_files = st.sidebar.file_uploader(
 )
 
 language = st.sidebar.selectbox(
-    "🌐 Language",
+    "Language",
     ["English", "Tamil", "Hindi", "Spanish", "French"]
 )
 
 generate_quiz = st.sidebar.button("🎯 Generate Quiz")
-
-if st.sidebar.button("🗑 Clear Chat"):
-    st.session_state.chat = []
 
 # ---------------- EMBEDDINGS ----------------
 @st.cache_resource
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# ---------------- CREATE VECTOR DB (CACHED ✅) ----------------
+# ---------------- LOAD DB (SAFE ✅) ----------------
 @st.cache_resource
 def load_db(files):
     docs = []
@@ -117,27 +61,21 @@ def load_db(files):
     if not docs:
         return None
 
-    return Chroma.from_documents(
-        docs,
-        embedding=get_embeddings()
-    )
+    # ✅ FAISS instead of Chroma
+    return FAISS.from_documents(docs, get_embeddings())
 
-# ---------------- LOAD DB ----------------
+# ---------------- DB ----------------
 db = None
 if uploaded_files:
     db = load_db(uploaded_files)
 
-# ---------------- MODEL (DEPLOYMENT SAFE ✅) ----------------
+# ---------------- MODEL ----------------
 @st.cache_resource
 def get_llm():
     return HuggingFaceHub(
         repo_id="google/flan-t5-base",
         model_kwargs={"temperature": 0.5}
     )
-
-# ---------------- SESSION ----------------
-if "chat" not in st.session_state:
-    st.session_state.chat = []
 
 # ---------------- PROMPT ----------------
 prompt = PromptTemplate.from_template(
@@ -154,22 +92,18 @@ Question:
 parser = StrOutputParser()
 
 # ---------------- CHAT ----------------
-st.markdown("## 💬 Chat with RegiBot")
+if "chat" not in st.session_state:
+    st.session_state.chat = []
 
 if db:
     retriever = db.as_retriever(search_kwargs={"k": 5})
     llm = get_llm()
 
-    query = st.chat_input("Ask anything from your document...")
+    query = st.chat_input("Ask something...")
 
-    # ✅ NORMAL CHAT
     if query:
         st.session_state.chat.append(("user", query))
-
-        loader = st.empty()
-        loader.markdown('<div class="loader">🤖 RegiBot Thinking...</div>', unsafe_allow_html=True)
-
-        try:
+        with st.spinner("🤖 Thinking..."):
             docs = retriever.invoke(query)
             context = "\n\n".join([d.page_content for d in docs])
 
@@ -180,37 +114,22 @@ if db:
                 "language": language
             })
 
-            loader.empty()
-            st.session_state.chat.append(("ai", answer, docs))
+        st.session_state.chat.append(("ai", answer, docs))
 
-        except Exception:
-            loader.empty()
-            st.error("⚠️ AI failed to respond")
+    if generate_quiz:
+        docs = retriever.invoke("quiz")
+        context = "\n\n".join([d.page_content for d in docs])
 
-    # ✅ QUIZ
-    if generate_quiz and db:
-        loader = st.empty()
-        loader.markdown('<div class="loader">🎯 Generating Quiz...</div>', unsafe_allow_html=True)
+        quiz_prompt = PromptTemplate.from_template(
+            "Create 5 MCQ questions from:\n{context}"
+        )
 
-        try:
-            docs = retriever.invoke("quiz")
-            context = "\n\n".join([d.page_content for d in docs])
+        chain = quiz_prompt | llm | parser
+        quiz = chain.invoke({"context": context})
 
-            quiz_prompt = PromptTemplate.from_template(
-                "Create 5 MCQ questions from this:\n{context}"
-            )
+        st.session_state.chat.append(("ai", quiz, docs))
 
-            chain = quiz_prompt | llm | parser
-            quiz = chain.invoke({"context": context})
-
-            loader.empty()
-            st.session_state.chat.append(("ai", quiz, docs))
-
-        except:
-            loader.empty()
-            st.error("Quiz failed")
-
-    # ✅ DISPLAY CHAT
+    # DISPLAY
     for msg in st.session_state.chat:
         if msg[0] == "user":
             st.chat_message("user").write(msg[1])
@@ -218,14 +137,7 @@ if db:
             st.chat_message("assistant").write(msg[1])
 
 else:
-    st.info("Upload documents to begin")
+    st.info("Upload documents first")
 
-# ---------------- FOOTER ----------------
-st.markdown("---")
-st.caption("🚀 ChatDOC AI • RegiBot Assistant")
-
-# ✅ WATERMARK
-st.markdown(
-    '<div class="watermark">✨ Made by Preethi Regina S D</div>',
-    unsafe_allow_html=True
-)
+# ---------------- WATERMARK ----------------
+st.caption("✨ Made by Preethi Regina S D")
