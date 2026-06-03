@@ -113,7 +113,7 @@ if uploaded_files:
 
     query = st.chat_input("💬 Ask your question...")
 
-    # ✅ CHAT
+# ✅ CHAT
     if query:
         st.session_state.chat.append(("user", query))
 
@@ -128,7 +128,9 @@ if uploaded_files:
                     "question": query,
                     "language": language
                 })
-            except:
+            except Exception as e:
+                # 🛑 THIS WILL PRINT THE EXACT ERROR IN YOUR TERMINAL/LOGS
+                st.error(f"Chat Error details: {e}")
                 answer = "⚠️ AI failed. Check HuggingFace API."
 
         st.session_state.chat.append(("ai", answer, docs))
@@ -140,17 +142,18 @@ if uploaded_files:
             context = "\n\n".join(docs)
 
             quiz_prompt = PromptTemplate.from_template(
-                "Create 5 MCQ questions from:\n{context}"
+                "Create 5 MCQ questions from this context:\n\n{context}"
             )
 
             try:
                 chain = quiz_prompt | llm | parser
                 quiz = chain.invoke({"context": context})
-            except:
+            except Exception as e:
+                # 🛑 THIS WILL PRINT THE EXACT ERROR IN YOUR TERMINAL/LOGS
+                st.error(f"Quiz Error details: {e}")
                 quiz = "⚠️ Quiz generation failed"
 
         st.session_state.chat.append(("ai", quiz, docs))
-
     # ✅ DISPLAY
     for msg in st.session_state.chat:
         if msg[0] == "user":
