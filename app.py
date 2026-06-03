@@ -1,11 +1,10 @@
 import streamlit as st
 import tempfile
-import time
+
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.llms import HuggingFaceHub
@@ -13,7 +12,6 @@ from langchain_community.llms import HuggingFaceHub
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="ChatDOC AI", layout="wide")
 
-# ---------------- UI ----------------
 st.title("🤖 ChatDOC AI – RegiBot")
 st.info("Upload a document and chat with it")
 
@@ -34,12 +32,7 @@ generate_quiz = st.sidebar.button("🎯 Generate Quiz")
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
-# ---------------- EMBEDDINGS ----------------
-@st.cache_resource
-def get_model():
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# ---------------- LOAD DOCUMENTS ----------------
+# ---------------- LOAD TEXT ----------------
 @st.cache_resource
 def load_docs(files):
     texts = []
@@ -55,23 +48,19 @@ def load_docs(files):
         for d in docs:
             texts.append(d.page_content)
 
-    splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-    return splitter.split_text("\n\n".join(texts))
+    return texts
 
-# ---------------- SIMILARITY SEARCH ----------------
+# ---------------- SIMPLE SEARCH ----------------
 def get_relevant_docs(query, texts):
-    model = get_model()
+    vectorizer = TfidfVectorizer()
+    vectors = vectorizer.fit_transform(texts + [query])
 
-    query_vec = model.embed_query(query)
-    doc_vecs = model.embed_documents(texts)
+    scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
+    top_indices = scores.argsort()[-5:][::-1]
 
-    scores = cosine_similarity([query_vec], doc_vecs)[0]
-    top_idx = scores.argsort()[-5:][::-1]
-
-    return [texts[i] for i in top_idx]
+    return [texts[i] for i in top_indices]
 
 # ---------------- MODEL ----------------
-@st.cache_resource
 def get_llm():
     return HuggingFaceHub(
         repo_id="google/flan-t5-base",
@@ -92,7 +81,7 @@ Question:
 
 parser = StrOutputParser()
 
-# ---------------- MAIN LOGIC ----------------
+# ---------------- MAIN ----------------
 if uploaded_files:
     texts = load_docs(uploaded_files)
     llm = get_llm()
@@ -116,20 +105,19 @@ if uploaded_files:
         st.session_state.chat.append(("ai", answer))
 
     if generate_quiz:
-        with st.spinner("🎯 Generating Quiz..."):
-            docs = get_relevant_docs("quiz", texts)
-            context = "\n\n".join(docs)
+        docs = get_relevant_docs("quiz", texts)
+        context = "\n\n".join(docs)
 
-            quiz_prompt = PromptTemplate.from_template(
-                "Create 5 MCQ questions from:\n{context}"
-            )
+        quiz_prompt = PromptTemplate.from_template(
+            "Create 5 MCQ questions from:\n{context}"
+        )
 
-            chain = quiz_prompt | llm | parser
-            quiz = chain.invoke({"context": context})
+        chain = quiz_prompt | llm | parser
+        quiz = chain.invoke({"context": context})
 
         st.session_state.chat.append(("ai", quiz))
 
-    # ---------------- CHAT DISPLAY ----------------
+    # DISPLAY CHAT
     for msg in st.session_state.chat:
         if msg[0] == "user":
             st.chat_message("user").write(msg[1])
@@ -139,5 +127,4 @@ if uploaded_files:
 else:
     st.info("Upload documents to begin")
 
-# ---------------- WATERMARK ----------------
 st.caption("✨ Made by Preethi Regina S D")
