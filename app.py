@@ -166,19 +166,18 @@ if uploaded_files:
 
         st.session_state.chat.append(("ai", quiz, docs))
 
-    # ✅ DISPLAY CHAT
-    for msg in st.session_state.chat:
-        if msg[0] == "user":
-            st.chat_message("user").write(msg[1])
-        else:
-            with st.chat_message("assistant"):
-                st.write(msg[1])
+# ✅ DISPLAY CHAT
+for msg in st.session_state.chat:
+    if msg[0] == "user":
+        st.chat_message("user").write(msg[1])
+    else:
+        with st.chat_message("assistant"):
+            st.write(msg[1])
 
-                if len(msg) > 2:
-                    with st.expander("📄 Source Context"):
-                        for d in msg[2]:
-                            st.write(d[:300] + "...")
-
+            if len(msg) > 2:
+                with st.expander("📄 Source Context"):
+                    for d in msg[2]:
+                        st.write(d[:300] + "...")
 else:
     st.info("📂 Upload documents to begin")
 
