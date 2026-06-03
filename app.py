@@ -10,7 +10,7 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.llms import HuggingFaceHub
+from langchain_community.llms import HuggingFaceEndpoint
 
 # ✅ Debug check
 st.write("✅ App Loaded Successfully")
@@ -92,14 +92,10 @@ def get_relevant_docs(query, texts):
 # ---------------- MODEL ----------------
 @st.cache_resource
 def get_llm():
-    try:
-        return HuggingFaceHub(
-            repo_id="google/flan-t5-base",
-            model_kwargs={"temperature": 0.5}
-        )
-    except:
-        st.error("⚠️ HuggingFace model failed. Add API token in Secrets.")
-        st.stop()
+    return HuggingFaceEndpoint(
+        repo_id="google/flan-t5-base",
+        temperature=0.5
+    )
 
 # ---------------- PROMPT ----------------
 prompt = PromptTemplate.from_template(
