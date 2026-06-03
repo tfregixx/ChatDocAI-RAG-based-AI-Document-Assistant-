@@ -1,107 +1,182 @@
 import streamlit as st
-import os   # ✅ REQUIRED
-
-st.set_page_config(page_title="ChatDocAI – RegiBot", layout="wide")
-
 import tempfile
-from sklearn.metrics.pairwise import cosine_similarity
 
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.document_loaders import (
+    PyPDFLoader,
+    TextLoader
+)
+
+from langchain_community.embeddings import (
+    HuggingFaceEmbeddings
+)
+
+from langchain_community.vectorstores import FAISS
+
+from langchain.docstore.document import Document
+
+from langchain_google_genai import (
+    ChatGoogleGenerativeAI
+)
+
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.llms import HuggingFaceHub
 
-# ---------------- UI ----------------
-st.title("🤖 ChatDocAI – GenAI Document Assistant")
-st.caption("RAG | LLM | LangChain")
+# --------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------
 
-st.info("📂 Upload documents → 💬 Ask → 🤖 AI answers")
+st.set_page_config(
+    page_title="ChatDocAI – RegiBot",
+    layout="wide"
+)
 
-# ---------------- SIDEBAR ----------------
+st.title("🤖 ChatDocAI – AI Document Assistant")
+st.caption("RAG + Gemini + FAISS")
+
+st.info(
+    "📂 Upload documents → 💬 Ask Questions → 🤖 AI Answers"
+)
+
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
+
 uploaded_files = st.sidebar.file_uploader(
-    "Upload PDF or TXT", type=["pdf", "txt"], accept_multiple_files=True
+    "Upload PDF or TXT files",
+    type=["pdf", "txt"],
+    accept_multiple_files=True
 )
 
 language = st.sidebar.selectbox(
     "🌐 Language",
-    ["English", "Tamil", "Hindi", "Spanish", "French"]
+    [
+        "English",
+        "Tamil",
+        "Hindi",
+        "Spanish",
+        "French"
+    ]
 )
 
-generate_quiz = st.sidebar.button("🎯 Generate Quiz")
+generate_quiz = st.sidebar.button(
+    "🎯 Generate Quiz"
+)
 
 if st.sidebar.button("🗑 Clear Chat"):
     st.session_state.chat = []
 
-# ---------------- SESSION ----------------
+# --------------------------------------------------
+# SESSION
+# --------------------------------------------------
+
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
-# ---------------- EMBEDDINGS ✅ FIXED ----------------
-@st.cache_resource
-def get_embeddings():
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# ---------------- MODEL ✅ FIXED --------------------
-import os
-from langchain_community.llms import HuggingFaceHub
+# --------------------------------------------------
+# GEMINI MODEL
+# --------------------------------------------------
 
 @st.cache_resource
 def get_llm():
-    try:
-        token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-        if not token:
-            st.error("⚠️ Missing HuggingFace API token")
-            st.stop()
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        google_api_key=st.secrets["GOOGLE_API_KEY"],
+        temperature=0.3
+    )
 
-        # ✅ Set environment variable
-        os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
+# --------------------------------------------------
+# EMBEDDINGS
+# --------------------------------------------------
 
-        return HuggingFaceHub(
-            repo_id="google/flan-t5-base",
-            task="text2text-generation",   # ✅ THIS LINE FIXES ERROR
-            model_kwargs={
-                "temperature": 0.5,
-                "max_length": 512
-            }
-        )
-
-    except Exception as e:
-        st.error(f"⚠️ LLM Error: {str(e)}")
-        st.stop()
-# ---------------- LOAD DOCS ----------------
 @st.cache_resource
-def load_docs(files):
+def get_embeddings():
+
+    return HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2"
+    )
+
+# --------------------------------------------------
+# LOAD DOCUMENTS
+# --------------------------------------------------
+
+def load_documents(files):
+
     texts = []
 
     for file in files:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+
+        with tempfile.NamedTemporaryFile(
+            delete=False
+        ) as tmp:
+
             tmp.write(file.read())
             path = tmp.name
 
-        loader = PyPDFLoader(path) if file.name.endswith(".pdf") else TextLoader(path)
+        if file.name.endswith(".pdf"):
+
+            loader = PyPDFLoader(path)
+
+        else:
+
+            loader = TextLoader(path)
+
         docs = loader.load()
 
-        texts.extend([d.page_content for d in docs])
+        texts.extend(
+            [doc.page_content for doc in docs]
+        )
 
     return texts
 
-# ---------------- RAG SEARCH ----------------
-def get_relevant_docs(query, texts):
-    model = get_embeddings()
+# --------------------------------------------------
+# VECTOR STORE
+# --------------------------------------------------
 
-    query_vec = model.embed_query(query)
-    doc_vecs = model.embed_documents(texts)
+@st.cache_resource
+def build_vectorstore(texts):
 
-    scores = cosine_similarity([query_vec], doc_vecs)[0]
-    top_idx = scores.argsort()[-5:][::-1]
+    docs = [
+        Document(page_content=text)
+        for text in texts
+    ]
 
-    return [texts[i] for i in top_idx]
+    embeddings = get_embeddings()
 
-# ---------------- PROMPT ----------------
+    vectorstore = FAISS.from_documents(
+        docs,
+        embeddings
+    )
+
+    return vectorstore
+
+# --------------------------------------------------
+# RETRIEVAL
+# --------------------------------------------------
+
+def retrieve_docs(query, vectorstore):
+
+    docs = vectorstore.similarity_search(
+        query,
+        k=5
+    )
+
+    return docs
+
+# --------------------------------------------------
+# PROMPT
+# --------------------------------------------------
+
 prompt = PromptTemplate.from_template(
-    """Answer ONLY from the context.
+"""
+You are an AI assistant.
+
+Answer ONLY from the provided context.
+
+If the answer is not present in the context,
+reply:
+
+'I could not find this information in the uploaded documents.'
 
 Context:
 {context}
@@ -115,71 +190,195 @@ Answer in {language}.
 
 parser = StrOutputParser()
 
-# ---------------- MAIN ----------------
+# --------------------------------------------------
+# MAIN
+# --------------------------------------------------
+
 if uploaded_files:
-    texts = load_docs(uploaded_files)
+
+    texts = load_documents(uploaded_files)
+
+    vectorstore = build_vectorstore(texts)
+
     llm = get_llm()
 
-    query = st.chat_input("💬 Ask your question...")
+    query = st.chat_input(
+        "💬 Ask your question..."
+    )
 
-# ✅ CHAT
+    # ------------------------------------------
+    # CHAT
+    # ------------------------------------------
+
     if query:
-        st.session_state.chat.append(("user", query))
 
-        with st.spinner("🤖 Thinking..."):
-            docs = get_relevant_docs(query, texts)
-            context = "\n\n".join(docs)
+        st.session_state.chat.append(
+            ("user", query)
+        )
 
-            try:
-                chain = prompt | llm | parser
-                answer = chain.invoke({
-                    "context": context,
-                    "question": query,
-                    "language": language
-                })
-            except Exception as e:
-                # 🛑 THIS WILL PRINT THE EXACT ERROR IN YOUR TERMINAL/LOGS
-                st.error(f"Chat Error details: {e}")
-                answer = "⚠️ AI failed. Check HuggingFace API."
+        with st.spinner(
+            "🤖 Thinking..."
+        ):
 
-        st.session_state.chat.append(("ai", answer, docs))
+            docs = retrieve_docs(
+                query,
+                vectorstore
+            )
 
-    # ✅ QUIZ
-    if generate_quiz:
-        with st.spinner("🎯 Generating Quiz..."):
-            docs = get_relevant_docs("quiz", texts)
-            context = "\n\n".join(docs)
+            context = "\n\n".join(
+                [d.page_content for d in docs]
+            )
 
-            quiz_prompt = PromptTemplate.from_template(
-                "Create 5 MCQ questions from this context:\n\n{context}"
+            chain = (
+                prompt
+                | llm
+                | parser
             )
 
             try:
-                chain = quiz_prompt | llm | parser
-                quiz = chain.invoke({"context": context})
-            except Exception as e:
-                # 🛑 THIS WILL PRINT THE EXACT ERROR IN YOUR TERMINAL/LOGS
-                st.error(f"Quiz Error details: {e}")
-                quiz = "⚠️ Quiz generation failed"
 
-        st.session_state.chat.append(("ai", quiz, docs))
-    # ✅ DISPLAY
+                answer = chain.invoke(
+                    {
+                        "context": context,
+                        "question": query,
+                        "language": language
+                    }
+                )
+
+            except Exception as e:
+
+                answer = (
+                    f"⚠️ Error: {str(e)}"
+                )
+
+        st.session_state.chat.append(
+            (
+                "ai",
+                answer,
+                docs
+            )
+        )
+
+    # ------------------------------------------
+    # QUIZ GENERATOR
+    # ------------------------------------------
+
+    if generate_quiz:
+
+        with st.spinner(
+            "🎯 Generating Quiz..."
+        ):
+
+            docs = retrieve_docs(
+                "important concepts",
+                vectorstore
+            )
+
+            context = "\n\n".join(
+                [d.page_content for d in docs]
+            )
+
+            quiz_prompt = PromptTemplate.from_template(
+"""
+Create 5 multiple-choice questions
+from the context.
+
+Context:
+{context}
+
+Format:
+
+Question 1
+
+A)
+B)
+C)
+D)
+
+Answer:
+
+Question 2
+...
+"""
+            )
+
+            chain = (
+                quiz_prompt
+                | llm
+                | parser
+            )
+
+            try:
+
+                quiz = chain.invoke(
+                    {
+                        "context": context
+                    }
+                )
+
+            except Exception as e:
+
+                quiz = (
+                    f"⚠️ Quiz Error: {str(e)}"
+                )
+
+        st.session_state.chat.append(
+            (
+                "ai",
+                quiz,
+                docs
+            )
+        )
+
+    # ------------------------------------------
+    # DISPLAY CHAT
+    # ------------------------------------------
+
     for msg in st.session_state.chat:
+
         if msg[0] == "user":
-            st.chat_message("user").write(msg[1])
+
+            st.chat_message(
+                "user"
+            ).write(msg[1])
+
         else:
-            with st.chat_message("assistant"):
+
+            with st.chat_message(
+                "assistant"
+            ):
+
                 st.write(msg[1])
 
                 if len(msg) > 2:
-                    with st.expander("📄 Source Context"):
+
+                    with st.expander(
+                        "📄 Source Context"
+                    ):
+
                         for d in msg[2]:
-                            st.write(d[:300] + "...")
+
+                            st.write(
+                                d.page_content[:500]
+                                + "..."
+                            )
 
 else:
-    st.info("📂 Upload documents to begin")
 
-# ---------------- FOOTER ----------------
+    st.info(
+        "📂 Upload documents to begin."
+    )
+
+# --------------------------------------------------
+# FOOTER
+# --------------------------------------------------
+
 st.markdown("---")
-st.caption("🚀 ChatDocAI – RAG + LLM System")
-st.caption("✨ Made by Preethi Regina S D")
+
+st.caption(
+    "🚀 ChatDocAI – RAG + Gemini + FAISS"
+)
+
+st.caption(
+    "✨ Made by Preethi Regina S D"
+)
