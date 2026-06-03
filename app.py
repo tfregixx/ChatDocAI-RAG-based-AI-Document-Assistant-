@@ -43,17 +43,22 @@ def get_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # ---------------- MODEL ✅ FIXED ----------------
+import os
+
 @st.cache_resource
 def get_llm():
-    try:
-        return HuggingFaceEndpoint(
-            repo_id="google/flan-t5-base",
-            temperature=0.5,
-            max_length=512
-        )
-    except:
-        st.error("⚠️ HuggingFace failed. Add API key in Secrets.")
+    token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+
+    if not token:
+        st.error("⚠️ HuggingFace API token missing! Add it in Streamlit Secrets.")
         st.stop()
+
+    return HuggingFaceEndpoint(
+        repo_id="google/flan-t5-base",
+        temperature=0.5,
+        max_length=512,
+        huggingfacehub_api_token=token   # ✅ THIS IS REQUIRED
+    )
 
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
