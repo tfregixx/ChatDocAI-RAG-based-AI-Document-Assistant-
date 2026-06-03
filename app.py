@@ -1,6 +1,5 @@
 import streamlit as st
 import tempfile
-import time
 from sklearn.metrics.pairwise import cosine_similarity
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -12,15 +11,14 @@ from langchain_community.llms import HuggingFaceHub
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="ChatDocAI – RegiBot", layout="wide")
 
-# ---------------- UI ----------------
-st.markdown("## 🤖 ChatDocAI – GenAI Document Assistant")
-st.caption("RAG | LLM | LangChain | RegiBot 🤖")
+st.write("✅ App Loaded Successfully")  # Debug indicator
 
-st.info("📂 Upload documents → 💬 Ask questions → 🤖 Get AI answers")
+st.title("🤖 ChatDocAI – GenAI Document Assistant")
+st.caption("RAG | LLM | LangChain")
+
+st.info("📂 Upload documents → 💬 Ask → 🤖 AI answers")
 
 # ---------------- SIDEBAR ----------------
-st.sidebar.header("📂 Upload Documents")
-
 uploaded_files = st.sidebar.file_uploader(
     "Upload PDF or TXT",
     type=["pdf", "txt"],
@@ -34,9 +32,6 @@ language = st.sidebar.selectbox(
 
 generate_quiz = st.sidebar.button("🎯 Generate Quiz")
 
-if st.sidebar.button("🗑 Clear Chat"):
-    st.session_state.chat = []
-
 # ---------------- SESSION ----------------
 if "chat" not in st.session_state:
     st.session_state.chat = []
@@ -44,51 +39,66 @@ if "chat" not in st.session_state:
 # ---------------- EMBEDDINGS ----------------
 @st.cache_resource
 def get_embeddings():
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    try:
+        return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    except Exception as e:
+        st.error("⚠️ Embedding model failed")
+        st.stop()
 
-# ---------------- LOAD DOCUMENTS ----------------
+# ---------------- LOAD DOCS ----------------
 @st.cache_resource
 def load_docs(files):
     texts = []
+    try:
+        for file in files:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(file.read())
+                path = tmp.name
 
-    for file in files:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(file.read())
-            path = tmp.name
+            loader = PyPDFLoader(path) if file.name.endswith(".pdf") else TextLoader(path)
+            docs = loader.load()
 
-        loader = PyPDFLoader(path) if file.name.endswith(".pdf") else TextLoader(path)
-        docs = loader.load()
+            for d in docs:
+                texts.append(d.page_content)
 
-        for d in docs:
-            texts.append(d.page_content)
+        return texts
 
-    return texts
+    except Exception as e:
+        st.error(f"⚠️ Error loading files: {e}")
+        return []
 
-# ---------------- RAG RETRIEVAL ----------------
+# ---------------- RAG SEARCH ----------------
 def get_relevant_docs(query, texts):
-    model = get_embeddings()
+    try:
+        model = get_embeddings()
 
-    query_vec = model.embed_query(query)
-    doc_vecs = model.embed_documents(texts)
+        query_vec = model.embed_query(query)
+        doc_vecs = model.embed_documents(texts)
 
-    scores = cosine_similarity([query_vec], doc_vecs)[0]
-    top_idx = scores.argsort()[-5:][::-1]
+        scores = cosine_similarity([query_vec], doc_vecs)[0]
+        top_indices = scores.argsort()[-5:][::-1]
 
-    return [texts[i] for i in top_idx]
+        return [texts[i] for i in top_indices]
 
-# ---------------- LLM ----------------
+    except Exception as e:
+        st.error("⚠️ Retrieval failed")
+        return []
+
+# ---------------- MODEL (SAFE ✅) ----------------
 @st.cache_resource
 def get_llm():
-    return HuggingFaceHub(
-        repo_id="google/flan-t5-base",
-        model_kwargs={"temperature": 0.5}
-    )
+    try:
+        return HuggingFaceHub(
+            repo_id="google/flan-t5-base",
+            model_kwargs={"temperature": 0.5}
+        )
+    except Exception as e:
+        st.error("⚠️ HuggingFace model failed. Check API token in Secrets.")
+        st.stop()
 
 # ---------------- PROMPT ----------------
-qa_prompt = PromptTemplate.from_template(
-    """You are an AI assistant.
-
-Answer ONLY from the provided context.
+prompt = PromptTemplate.from_template(
+    """Answer ONLY using the provided context.
 
 Context:
 {context}
@@ -100,60 +110,58 @@ Answer in {language}.
 """
 )
 
-quiz_prompt = PromptTemplate.from_template(
-    """Generate 5 multiple-choice questions from the text.
-
-Context:
-{context}
-
-Format:
-Q1:
-A.
-B.
-C.
-D.
-Answer:
-"""
-)
-
 parser = StrOutputParser()
 
 # ---------------- MAIN ----------------
 if uploaded_files:
     texts = load_docs(uploaded_files)
-    llm = get_llm()
 
-    query = st.chat_input("💬 Ask something from your document...")
+    if not texts:
+        st.warning("⚠️ No text extracted from documents.")
+        st.stop()
+
+    llm = get_llm()
+    query = st.chat_input("💬 Ask your question...")
 
     # ✅ CHAT
     if query:
         st.session_state.chat.append(("user", query))
 
-        with st.spinner("🤖 RegiBot is thinking..."):
+        with st.spinner("🤖 Thinking..."):
             docs = get_relevant_docs(query, texts)
             context = "\n\n".join(docs)
 
-            chain = qa_prompt | llm | parser
-            answer = chain.invoke({
-                "context": context,
-                "question": query,
-                "language": language
-            })
+            try:
+                chain = prompt | llm | parser
+                answer = chain.invoke({
+                    "context": context,
+                    "question": query,
+                    "language": language
+                })
+            except Exception:
+                answer = "⚠️ Error generating response (check API key or model)"
 
         st.session_state.chat.append(("ai", answer, docs))
 
     # ✅ QUIZ
     if generate_quiz:
-        with st.spinner("🎯 Generating quiz..."):
+        with st.spinner("🎯 Generating Quiz..."):
             docs = get_relevant_docs("quiz", texts)
             context = "\n\n".join(docs)
 
-            chain = quiz_prompt | llm | parser
-            quiz = chain.invoke({"context": context})
+            quiz_prompt = PromptTemplate.from_template(
+                "Create 5 MCQ questions from the context:\n{context}"
+            )
+
+            try:
+                chain = quiz_prompt | llm | parser
+                quiz = chain.invoke({"context": context})
+            except:
+                quiz = "⚠️ Quiz generation failed"
 
         st.session_state.chat.append(("ai", quiz, docs))
 
-    # ---------------- DISPLAY ----------------
+    # ✅ DISPLAY CHAT
     for msg in st.session_state.chat:
         if msg[0] == "user":
             st.chat_message("user").write(msg[1])
@@ -161,11 +169,9 @@ if uploaded_files:
             with st.chat_message("assistant"):
                 st.write(msg[1])
 
-                # ✅ SHOW SOURCES
                 if len(msg) > 2:
                     with st.expander("📄 Source Context"):
-                        for i, d in enumerate(msg[2]):
-                            st.write(f"Source {i+1}:")
+                        for d in msg[2]:
                             st.write(d[:300] + "...")
 
 else:
@@ -173,5 +179,5 @@ else:
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
-st.caption("🚀 ChatDocAI – Built with RAG + LLM + LangChain")
+st.caption("🚀 ChatDocAI – RAG + LLM System")
 st.caption("✨ Made by Preethi Regina S D")
