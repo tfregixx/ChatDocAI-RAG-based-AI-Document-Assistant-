@@ -1,3 +1,4 @@
+st.write("✅ Running correctly")
 import streamlit as st
 import tempfile
 from sklearn.metrics.pairwise import cosine_similarity
