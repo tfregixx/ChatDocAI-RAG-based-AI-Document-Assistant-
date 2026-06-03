@@ -1,98 +1,201 @@
-# 🤖 ChatDocAI – GenAI Document Assistant (RAG | LLM | LangChain)
+# 🤖 ChatDocAI – AI Document Assistant (RAG | Gemini | LangChain) 
+<p align="center"> 
+  
+<a href="https://chatdocc.streamlit.app/"> 
+ <img src="https://img.shields.io/badge/🚀%20Live%20Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/> 
+</a> 
 
-<p align="center">
-  <img src="https://img.shields.io/badge/AI-LangChain-blue?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/LLM-Ollama-green?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/UI-Streamlit-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Database-ChromaDB-purple?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Mode-Hybrid-brightgreen?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Language-Multilingual-red?style=for-the-badge"/>
-</p>
+<a href="https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-"> 
+ <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github"/> 
+</a> 
 
-ChatDocAI is a **GenAI-powered document assistant built using RAG (Retrieval-Augmented Generation)** that allows users to query documents with **LLM-backed, context-aware answers**.
-🚀 Built with RAG + LLMs to deliver accurate, context-aware answers from user documents.
+</p> 
+
+<p align="center"> 
+  
+<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"/> 
+  
+<img src="https://img.shields.io/badge/LangChain-Framework-00A67E?style=for-the-badge"/> 
+  
+<img src="https://img.shields.io/badge/Google-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white"/> 
+  
+<img src="https://img.shields.io/badge/RAG-Retrieval%20Augmented%20Generation-success?style=for-the-badge"/> 
+  
+<img src="https://img.shields.io/badge/Vector%20Database-FAISS-purple?style=for-the-badge"/>
+  
+<img src="https://img.shields.io/badge/UI-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/> 
+  
+<img src="https://img.shields.io/badge/Embeddings-Sentence%20Transformers-yellow?style=for-the-badge"/> 
+  
+<img src="https://img.shields.io/badge/Documents-PDF%20%7C%20TXT-blue?style=for-the-badge"/>
+  
+<img src="https://img.shields.io/badge/Quiz-MCQ%20Generator-orange?style=for-the-badge"/> 
+  
+<img src="https://img.shields.io/badge/Language-Multilingual-red?style=for-the-badge"/> 
+  
+<img src="https://img.shields.io/badge/Deployment-Streamlit%20Cloud-FF4B4B?style=for-the-badge"/>
+  
+</p> 
+  
+<p align="center"> 
+<img src="https://img.shields.io/github/stars/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-?style=for-the-badge"/> 
+    
+<img src="https://img.shields.io/github/forks/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-?style=for-the-badge"/> 
+    
+<img src="https://img.shields.io/github/last-commit/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-?style=for-the-badge"/> 
+    
+<img src="https://img.shields.io/github/repo-size/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-?style=for-the-badge"/> 
+    
+</p> 
+<p align="center"> 
+🚀 Upload Documents → Ask Questions → Generate Quizzes → Get AI-Powered Answers 
+</p> 
+    
+  --- 
+    
+## 📖 Overview 
+ChatDocAI is a **GenAI-powered Document Assistant** built using **Retrieval-Augmented Generation (RAG)** that allows users to upload PDF and TXT documents and interact with them using natural language. 
+
+The application combines **Google Gemini 2.5 Flash**, **LangChain**, **FAISS Vector Search**, and **Sentence Transformer Embeddings** to provide accurate, context-aware answers grounded in uploaded documents. 
 
 ---
 
-## Problem
-Users struggle to extract relevant information from large documents efficiently.
+## 🎯 Problem 
+Users often struggle to locate important information inside large documents. 
 
-## Solution
-ChatDocAI implements a **Retrieval-Augmented Generation (RAG)** pipeline that retrieves relevant document context using embeddings and generates accurate responses using LLMs.
-
-## Impact
-- Improved answer relevance compared to keyword-based search
-- Enabled contextual, document-grounded responses
-- Fully offline capability using local LLMs
+Traditional keyword-based search cannot understand semantic meaning and frequently misses relevant information hidden within lengthy content. 
 
 ---
 
-## Features
+## 💡 Solution 
+ChatDocAI implements a complete **Retrieval-Augmented Generation (RAG)** pipeline that: 
+* Extracts text from uploaded documents 
+* Generates semantic embeddings 
+* Stores vectors in FAISS 
+* Retrieves relevant context through similarity search 
+* Generates grounded responses using Gemini 
+This enables intelligent document interaction with significantly higher accuracy than traditional search methods. 
 
-- **📂 Document Upload:** Upload PDF and TXT documents  
-- **💬 Chat Interface:** ChatGPT-style interaction  
-- **🌐 Multi-Language:** English, Tamil, Hindi, Spanish, French  
-- **🎯 Quiz Generator:** Create MCQs from documents  
-- **🤖 RegiBot Assistant:** Animated AI with personality  
-- **🔒 Offline Mode:** Works locally with Ollama  
-- **🌐 Online Mode:** HuggingFace fallback  
-- **📄 Source Evidence:** Transparent AI answers  
-- **⚡ Fast Retrieval:** Vector search using embeddings  
-- **🎬 UI Animations:** Typing and loading effects  
+--- 
+
+## 🚀 Impact 
+* Improved answer relevance compared to keyword search 
+* Reduced hallucinations using source-grounded retrieval 
+* Faster information discovery from large documents 
+* Enhanced learning through AI-generated quizzes 
+* Multilingual document interaction 
+
+--- 
+
+## ✨ Features 
+### 📂 Smart Document Processing 
+* Upload PDF documents 
+* Upload TXT files 
+* Multi-document support 
+* Automatic content extraction 
+
+### 💬 AI-Powered Chat 
+* ChatGPT-style conversation interface 
+* Context-aware responses 
+* Grounded document answers 
+* Real-time interaction
+
+### 🧠 Retrieval-Augmented Generation (RAG) 
+* Semantic similarity search 
+* Embedding-based retrieval 
+* Top-K contextual search 
+* FAISS vector indexing 
+
+### 🌐 Multilingual Support 
+* English 
+* Tamil 
+* Hindi 
+* Spanish 
+* French 
+
+### 🎯 AI Quiz Generator 
+* Generate MCQs from uploaded documents 
+* Learning-focused assessments 
+* Instant knowledge testing 
+    
+### 📄 Source Transparency 
+* Displays retrieved context 
+* Improves explainability 
+* Supports answer verification 
+
+--- 
+    
+## 🌐 Live Demo 
+
+### 🚀 Streamlit Application 
+
+[https://chatdocc.streamlit.app/](https://share.streamlit.io/user/tfregixx)
+    
+### 💻 GitHub Repository 
+
+https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-
 
 ---
 
-## Prerequisites
+## 🛠️ Technologies Used 
 
-Ensure the following are installed:
+### Frontend 
+* Streamlit 
+* HTML 
+* CSS 
 
-- Python 3.9 or later  
-- pip  
-- Streamlit  
-- Internet connection (for online mode)  
-- Ollama (optional for offline AI)  
+### Backend & AI 
+* LangChain 
+* Google Gemini 2.5 Flash 
+* Sentence Transformers 
 
----
+### Vector Database 
+* FAISS
 
-## Technologies Used
+### Document Processing 
+* PyPDF 
+* TextLoader 
 
-### Frontend
-- Streamlit  
-- HTML & CSS  
+### Programming Language 
+* Python 
 
-### Backend / AI
-- LangChain  
-- Ollama (LLaMA 3)  
-- HuggingFace Models  
-- Sentence Transformers  
-
-### Database
-- ChromaDB  
-
-### Tools
-- Python  
-- Git & GitHub  
+### Version Control
+* Git 
+* GitHub
 
 ---
 
 ## 🧠 Architecture
 
-```mermaid
-flowchart TD
+```mermaid 
+flowchart TD 
 
-    A[Upload Documents] --> B[Text Chunking]
-    B --> C[Create Embeddings]
-    C --> D[ChromaDB Vector Store]
+A[Upload Documents] 
+--> B[Document Parsing] 
 
-    E[User Query] --> F[Semantic Retrieval]
-    F --> D
-    F --> G[Relevant Context]
+B --> C[Text Extraction] 
 
-    G --> H[AI Model - Ollama or HuggingFace]
-    H --> I[Generated Answer]
+C --> D[Text Chunking] 
 
-    I --> J[Chat Response with Sources]
+D --> E[Generate Embeddings] 
+
+E --> F[FAISS Vector Store] 
+
+G[User Question] 
+--> H[Semantic Retrieval] 
+
+H --> F 
+
+H --> I[Relevant Context] 
+
+I --> J[Google Gemini 2.5 Flash] 
+
+J --> K[Generated Answer] 
+
+K --> L[Source Context Display]
+
 ```
+
 ---
 
 ## 🎥 Demo
@@ -100,6 +203,8 @@ flowchart TD
 
 [▶️ Watch Demo](https://github.com/tfregixx/ChatDocAI-RAG-based-AI-Document-Assistant-/blob/main/demo.webm)
 
+ ### 🌐 Live Application 
+[ https://chatdocc.streamlit.app/ ](https://share.streamlit.io/user/tfregixx)
 
 ✨ Upload documents → Ask questions → Get AI-powered answers  
 
@@ -140,13 +245,35 @@ cd ChatDOC-AI
 ```bash
 pip install -r requirements.txt
 ```
-3. Run the application:
+3. Configure Gemini API Key Create:
+toml
+.streamlit/secrets.toml
+
+Add:
+toml
+GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
+
+4. Run the application:
 ```bash
 streamlit run app.py
 ```
-4. Open in browser:
+5. Open in browser:
 
 http://localhost:8501
+
+---
+
+## 📦 Requirements
+
+*txt
+*streamlit
+*langchain
+*langchain-community
+*langchain-google-genai
+*faiss-cpu
+*sentence-transformers
+*pypdf
+*scikit-learn
 
 ---
 
@@ -154,60 +281,90 @@ http://localhost:8501
 
 - **✅ RAG enables context-aware document understanding**
 - **✅ Semantic search improves retrieval accuracy**
-- **✅ LLM responses are grounded using vector-based context**
-- **✅ Local LLMs enable privacy-focused AI systems**
+- **✅ Gemini generates grounded responses**
+- **✅ FAISS enables efficient vector retrieval**
+- **✅ Source context improves explainability**
+- **✅ AI-generated quizzes support learning**
 
 ---
 
 ## 🏗️ System Workflow
 
-- **📄 Document ingestion & chunking**
-- **🧠 Embedding generation (HuggingFace)**
-- **📊 Storage in ChromaDB (vector DB)**
-- **🔍 Semantic retrieval (Top-K search)**
-- **🤖 Response generation using LLM (Ollama)**
+*📄 Document ingestion 
+*✂️ Text chunking 
+*🧠 Embedding generation 
+*📊 FAISS indexing 
+*🔍 Semantic retrieval 
+*🤖 Gemini response generation 
+*📄 Source evidence display
 
 ---
 
 ## 🧠 Advanced Capabilities
 
-- ✅ RAG pipeline from scratch  
-- ✅ Hybrid mode (online + offline LLMs)  
-- ✅ Source-grounded responses  
-- ✅ Semantic retrieval using embeddings  
+*✅ RAG pipeline from scratch  
+*✅ Semantic Search  
+*✅ Vector Similarity Retrieval 
+*✅ Multi-Document Querying
+*✅ AI Quiz Generation 
+*✅ Multilingual Responses 
+*✅ Source-Grounded Answers
 
 ---
 
 ## 📈 Results
 
-- **✅ Improved answer relevance vs keyword search**
-- **✅ Reduced hallucination using RAG**
-- **✅ Efficient querying of large documents**
+*✅ Improved answer relevance compared to keyword search
+*✅ Reduced hallucinations using RAG
+*✅ Faster retrieval from large documents
+*✅ Better user experience for document exploration
+*✅ Scalable architecture using FAISS
 
 ---
 
 ## 🔮 Future Work
 
-- **🔥 Agentic workflows (multi-step reasoning)**
-- **📊 Automated evaluation metrics**
-- **🧠 Multi-document reasoning**
-- **🎨 Improved UI and UX**
+*🔥 Conversational Memory 
+*📊 Citation-Based Responses 
+*🧠 Multi-Document Reasoning 
+*📄 Automated Summarization 
+*🎤 Voice-Based Interaction 
+*🤖 Agentic AI Workflows 
+*📚 Knowledge Graph Integration
 
 ---
 
-## 💡 Learnings
+## 💡 Learnings 
 
-- **Built full RAG pipeline from scratch**
-- **Worked with LLMs, embeddings, vector DB**
-- **Designed real-world AI system architecture**
-
----
-
-## 📌 Author
-
-**Preethi Regina**  
-AI Engineer | GenAI & RAG Developer  
-[LinkedIn](https://www.linkedin.com/in/regina2022/)  
+*Built a complete RAG pipeline from scratch 
+*Implemented semantic search using embeddings 
+*Integrated Google Gemini APIs 
+*Worked with FAISS vector databases 
+*Developed production-ready AI applications 
+*Designed scalable document intelligence systems 
 
 ---
+
+## 📌 Author 
+### Preethi Regina S D 
+
+**AI Engineer | Generative AI | RAG Developer** 
+
+🔗 LinkedIn: https://www.linkedin.com/in/regina2022/ 
+💻 GitHub: https://github.com/tfregixx 
+
+--- 
+
+## ⭐ Support If you found this project useful: 
+
+🌟 Star the repository 
+🍴 Fork the project 
+🚀 Share it with others 
+💡 Contribute to future improvements 
+
+--- 
+
+<p align="center"> 
+Made with ❤️ using Gemini, LangChain, FAISS & Streamlit 
+</p>
 
