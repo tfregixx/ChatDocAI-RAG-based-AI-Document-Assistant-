@@ -43,12 +43,18 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # ---------------- EMBEDDINGS ----------------
+from langchain_community.llms import HuggingFaceEndpoint
+
 @st.cache_resource
-def get_embeddings():
+def get_llm():
     try:
-        return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        return HuggingFaceEndpoint(
+            repo_id="google/flan-t5-base",
+            temperature=0.5,
+            max_length=512
+        )
     except Exception as e:
-        st.error("⚠️ Embedding model failed")
+        st.error("⚠️ HuggingFace connection failed. Check API key.")
         st.stop()
 
 # ---------------- LOAD DOCS ----------------
