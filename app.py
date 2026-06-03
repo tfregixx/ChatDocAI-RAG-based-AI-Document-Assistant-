@@ -1,16 +1,10 @@
-import os
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-
 import streamlit as st
 import tempfile
 import time
+from sklearn.metrics.pairwise import cosine_similarity
 
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-
-# ✅ USE FAISS INSTEAD OF CHROMA (MORE STABLE ✅)
-from langchain_community.vectorstores import FAISS
-
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -37,15 +31,18 @@ language = st.sidebar.selectbox(
 
 generate_quiz = st.sidebar.button("🎯 Generate Quiz")
 
+if "chat" not in st.session_state:
+    st.session_state.chat = []
+
 # ---------------- EMBEDDINGS ----------------
 @st.cache_resource
-def get_embeddings():
+def get_model():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# ---------------- LOAD DB (SAFE ✅) ----------------
+# ---------------- LOAD DOCUMENTS ----------------
 @st.cache_resource
-def load_db(files):
-    docs = []
+def load_docs(files):
+    texts = []
 
     for file in files:
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -53,21 +50,25 @@ def load_db(files):
             path = tmp.name
 
         loader = PyPDFLoader(path) if file.name.endswith(".pdf") else TextLoader(path)
-        docs.extend(loader.load())
+        docs = loader.load()
+
+        for d in docs:
+            texts.append(d.page_content)
 
     splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-    docs = splitter.split_documents(docs)
+    return splitter.split_text("\n\n".join(texts))
 
-    if not docs:
-        return None
+# ---------------- SIMILARITY SEARCH ----------------
+def get_relevant_docs(query, texts):
+    model = get_model()
 
-    # ✅ FAISS instead of Chroma
-    return FAISS.from_documents(docs, get_embeddings())
+    query_vec = model.embed_query(query)
+    doc_vecs = model.embed_documents(texts)
 
-# ---------------- DB ----------------
-db = None
-if uploaded_files:
-    db = load_db(uploaded_files)
+    scores = cosine_similarity([query_vec], doc_vecs)[0]
+    top_idx = scores.argsort()[-5:][::-1]
+
+    return [texts[i] for i in top_idx]
 
 # ---------------- MODEL ----------------
 @st.cache_resource
@@ -91,21 +92,19 @@ Question:
 
 parser = StrOutputParser()
 
-# ---------------- CHAT ----------------
-if "chat" not in st.session_state:
-    st.session_state.chat = []
-
-if db:
-    retriever = db.as_retriever(search_kwargs={"k": 5})
+# ---------------- MAIN LOGIC ----------------
+if uploaded_files:
+    texts = load_docs(uploaded_files)
     llm = get_llm()
 
-    query = st.chat_input("Ask something...")
+    query = st.chat_input("Ask your question...")
 
     if query:
         st.session_state.chat.append(("user", query))
+
         with st.spinner("🤖 Thinking..."):
-            docs = retriever.invoke(query)
-            context = "\n\n".join([d.page_content for d in docs])
+            docs = get_relevant_docs(query, texts)
+            context = "\n\n".join(docs)
 
             chain = prompt | llm | parser
             answer = chain.invoke({
@@ -114,22 +113,23 @@ if db:
                 "language": language
             })
 
-        st.session_state.chat.append(("ai", answer, docs))
+        st.session_state.chat.append(("ai", answer))
 
     if generate_quiz:
-        docs = retriever.invoke("quiz")
-        context = "\n\n".join([d.page_content for d in docs])
+        with st.spinner("🎯 Generating Quiz..."):
+            docs = get_relevant_docs("quiz", texts)
+            context = "\n\n".join(docs)
 
-        quiz_prompt = PromptTemplate.from_template(
-            "Create 5 MCQ questions from:\n{context}"
-        )
+            quiz_prompt = PromptTemplate.from_template(
+                "Create 5 MCQ questions from:\n{context}"
+            )
 
-        chain = quiz_prompt | llm | parser
-        quiz = chain.invoke({"context": context})
+            chain = quiz_prompt | llm | parser
+            quiz = chain.invoke({"context": context})
 
-        st.session_state.chat.append(("ai", quiz, docs))
+        st.session_state.chat.append(("ai", quiz))
 
-    # DISPLAY
+    # ---------------- CHAT DISPLAY ----------------
     for msg in st.session_state.chat:
         if msg[0] == "user":
             st.chat_message("user").write(msg[1])
@@ -137,7 +137,7 @@ if db:
             st.chat_message("assistant").write(msg[1])
 
 else:
-    st.info("Upload documents first")
+    st.info("Upload documents to begin")
 
 # ---------------- WATERMARK ----------------
 st.caption("✨ Made by Preethi Regina S D")
