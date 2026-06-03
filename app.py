@@ -52,14 +52,15 @@ def get_llm():
         token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
         if not token:
-            st.error("⚠️ Missing HuggingFace token in Secrets")
+            st.error("⚠️ Missing HuggingFace API token")
             st.stop()
 
-        # ✅ Set env explicitly (IMPORTANT FIX)
+        # ✅ Set environment variable
         os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
 
         return HuggingFaceHub(
             repo_id="google/flan-t5-base",
+            task="text2text-generation",   # ✅ THIS LINE FIXES ERROR
             model_kwargs={
                 "temperature": 0.5,
                 "max_length": 512
@@ -69,7 +70,6 @@ def get_llm():
     except Exception as e:
         st.error(f"⚠️ LLM Error: {str(e)}")
         st.stop()
-
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
 def load_docs(files):
