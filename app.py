@@ -43,6 +43,7 @@ def get_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # ---------------- MODEL ✅ FIXED ----------------
+
 import os
 
 @st.cache_resource
@@ -54,12 +55,11 @@ def get_llm():
         st.stop()
 
     return HuggingFaceEndpoint(
-        repo_id="google/flan-t5-base",
-        temperature=0.5,
-        max_length=512,
-        huggingfacehub_api_token=token  # ✅ CRITICAL LINE
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",  # 👈 Upgraded to a powerful RAG model
+        temperature=0.7,                               # 👈 Slightly higher for more creative quiz variety
+        max_new_tokens=1024,                           # 👈 Fixed parameter name & increased for longer quiz responses
+        huggingfacehub_api_token=token  
     )
-
 
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
