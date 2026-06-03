@@ -265,15 +265,15 @@ http://localhost:8501
 
 ## 📦 Requirements
 
-*txt
-*streamlit
-*langchain
-*langchain-community
-*langchain-google-genai
-*faiss-cpu
-*sentence-transformers
-*pypdf
-*scikit-learn
+**txt**
+**streamlit**
+**langchain**
+**langchain-community**
+**langchain-google-genai**
+**faiss-cpu**
+**sentence-transformers**
+**pypdf**
+**scikit-learn**
 
 ---
 
@@ -290,58 +290,58 @@ http://localhost:8501
 
 ## 🏗️ System Workflow
 
-*📄 Document ingestion 
-*✂️ Text chunking 
-*🧠 Embedding generation 
-*📊 FAISS indexing 
-*🔍 Semantic retrieval 
-*🤖 Gemini response generation 
-*📄 Source evidence display
+**📄 Document ingestion** 
+**✂️ Text chunking** 
+**🧠 Embedding generation** 
+**📊 FAISS indexing** 
+**🔍 Semantic retrieval** 
+**🤖 Gemini response generation** 
+**📄 Source evidence display**
 
 ---
 
 ## 🧠 Advanced Capabilities
 
-*✅ RAG pipeline from scratch  
-*✅ Semantic Search  
-*✅ Vector Similarity Retrieval 
-*✅ Multi-Document Querying
-*✅ AI Quiz Generation 
-*✅ Multilingual Responses 
-*✅ Source-Grounded Answers
+**✅ RAG pipeline from scratch**  
+**✅ Semantic Search** 
+**✅ Vector Similarity Retrieval** 
+**✅ Multi-Document Querying**
+**✅ AI Quiz Generation** 
+**✅ Multilingual Responses** 
+**✅ Source-Grounded Answers**
 
 ---
 
 ## 📈 Results
 
-*✅ Improved answer relevance compared to keyword search
-*✅ Reduced hallucinations using RAG
-*✅ Faster retrieval from large documents
-*✅ Better user experience for document exploration
-*✅ Scalable architecture using FAISS
+**✅ Improved answer relevance compared to keyword search**
+**✅ Reduced hallucinations using RAG**
+**✅ Faster retrieval from large documents**
+**✅ Better user experience for document exploration**
+**✅ Scalable architecture using FAISS**
 
 ---
 
 ## 🔮 Future Work
 
-*🔥 Conversational Memory 
-*📊 Citation-Based Responses 
-*🧠 Multi-Document Reasoning 
-*📄 Automated Summarization 
-*🎤 Voice-Based Interaction 
-*🤖 Agentic AI Workflows 
-*📚 Knowledge Graph Integration
+**🔥 Conversational Memory** 
+**📊 Citation-Based Responses** 
+**🧠 Multi-Document Reasoning** 
+**📄 Automated Summarization** 
+**🎤 Voice-Based Interaction** 
+**🤖 Agentic AI Workflows** 
+**📚 Knowledge Graph Integration**
 
 ---
 
 ## 💡 Learnings 
 
-*Built a complete RAG pipeline from scratch 
-*Implemented semantic search using embeddings 
-*Integrated Google Gemini APIs 
-*Worked with FAISS vector databases 
-*Developed production-ready AI applications 
-*Designed scalable document intelligence systems 
+**Built a complete RAG pipeline from scratch**
+**Implemented semantic search using embeddings**
+**Integrated Google Gemini APIs** 
+**Worked with FAISS vector databases** 
+**Developed production-ready AI applications** 
+**Designed scalable document intelligence systems** 
 
 ---
 
@@ -349,18 +349,17 @@ http://localhost:8501
 ### Preethi Regina S D 
 
 **AI Engineer | Generative AI | RAG Developer** 
-
-🔗 LinkedIn: https://www.linkedin.com/in/regina2022/ 
-💻 GitHub: https://github.com/tfregixx 
+*🔗 LinkedIn: https://www.linkedin.com/in/regina2022/ **
+*💻 GitHub: https://github.com/tfregixx**
 
 --- 
 
 ## ⭐ Support If you found this project useful: 
 
-🌟 Star the repository 
-🍴 Fork the project 
-🚀 Share it with others 
-💡 Contribute to future improvements 
+**🌟 Star the repository**
+**🍴 Fork the project**
+**🚀 Share it with others**
+**💡 Contribute to future improvements** 
 
 --- 
 
