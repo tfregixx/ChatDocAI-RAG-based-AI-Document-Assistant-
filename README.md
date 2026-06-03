@@ -265,15 +265,15 @@ http://localhost:8501
 
 ## 📦 Requirements
 
-**txt**
-**streamlit**
-**langchain**
-**langchain-community**
-**langchain-google-genai**
-**faiss-cpu**
-**sentence-transformers**
-**pypdf**
-**scikit-learn**
+* txt
+* streamlit
+* langchain
+* langchain-community
+* langchain-google-genai
+* faiss-cpu
+* sentence-transformers
+* pypdf
+* scikit-learn
 
 ---
 
