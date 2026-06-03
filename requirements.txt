@@ -1,11 +1,8 @@
 streamlit==1.35.0
 langchain==0.1.17
 langchain-community==0.0.36
-chromadb==0.4.24
+faiss-cpu==1.7.4
 sentence-transformers==2.6.1
-protobuf==4.25.3
+huggingface-hub==0.23.0
 pypdf==4.2.0
 requests==2.31.0
-huggingface-hub==0.23.0
-Pillow==10.3.0
-# rebuild trigger
