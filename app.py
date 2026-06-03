@@ -44,20 +44,31 @@ def get_embeddings():
 
 # ---------------- MODEL ✅ FIXED --------------------
 import os
+from langchain_community.llms import HuggingFaceHub
 
 @st.cache_resource
 def get_llm():
-    token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    try:
+        token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-    if not token:
-        st.error("⚠️ HuggingFace API token missing")
+        if not token:
+            st.error("⚠️ Missing HuggingFace token in Secrets")
+            st.stop()
+
+        # ✅ Set env explicitly (IMPORTANT FIX)
+        os.environ["HUGGINGFACEHUB_API_TOKEN"] = token
+
+        return HuggingFaceHub(
+            repo_id="google/flan-t5-base",
+            model_kwargs={
+                "temperature": 0.5,
+                "max_length": 512
+            }
+        )
+
+    except Exception as e:
+        st.error(f"⚠️ LLM Error: {str(e)}")
         st.stop()
-
-    return HuggingFaceHub(
-        repo_id="google/flan-t5-base",  # ✅ STABLE MODEL
-        huggingfacehub_api_token=token,
-        model_kwargs={"temperature": 0.5}
-    )
 
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
