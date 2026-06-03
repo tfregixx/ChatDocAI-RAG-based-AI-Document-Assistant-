@@ -45,7 +45,6 @@ def get_embeddings():
 # ---------------- MODEL ✅ FIXED ----------------
 
 import os
-
 @st.cache_resource
 def get_llm():
     token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
@@ -55,12 +54,12 @@ def get_llm():
         st.stop()
 
     return HuggingFaceEndpoint(
-        repo_id="mistralai/Mistral-7B-Instruct-v0.3",  # 👈 Upgraded to a powerful RAG model
-        temperature=0.7,                               # 👈 Slightly higher for more creative quiz variety
-        max_new_tokens=1024,                           # 👈 Fixed parameter name & increased for longer quiz responses
-        huggingfacehub_api_token=token  
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        temperature=0.7,
+        max_new_tokens=512,  # Moderated down slightly to prevent payload timeout drops
+        huggingfacehub_api_token=token,
+        timeout=300          # Gives the network a 5-minute window to resolve before breaking
     )
-
 # ---------------- LOAD DOCS ----------------
 @st.cache_resource
 def load_docs(files):
