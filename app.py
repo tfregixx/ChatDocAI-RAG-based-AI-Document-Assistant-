@@ -6,12 +6,13 @@ from langchain_community.document_loaders import (
     TextLoader
 )
 
+from langchain_core.documents import Document
+
 from langchain_community.embeddings import (
     HuggingFaceEmbeddings
 )
 
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
 
 from langchain_google_genai import (
     ChatGoogleGenerativeAI
@@ -20,28 +21,39 @@ from langchain_google_genai import (
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
+from langchain_text_splitters import (
+    RecursiveCharacterTextSplitter
+)
+
 # --------------------------------------------------
 # PAGE CONFIG
 # --------------------------------------------------
 
 st.set_page_config(
-    page_title="ChatDocAI – RegiBot",
+    page_title="ChatDocAI",
+    page_icon="🤖",
     layout="wide"
 )
+
+# --------------------------------------------------
+# HEADER
+# --------------------------------------------------
 
 st.title("🤖 ChatDocAI – AI Document Assistant")
 st.caption("RAG + Gemini + FAISS")
 
 st.info(
-    "📂 Upload documents → 💬 Ask Questions → 🤖 AI Answers"
+    "📂 Upload Documents → 💬 Ask Questions → 🤖 Get AI-Powered Answers"
 )
 
 # --------------------------------------------------
 # SIDEBAR
 # --------------------------------------------------
 
+st.sidebar.header("📂 Documents")
+
 uploaded_files = st.sidebar.file_uploader(
-    "Upload PDF or TXT files",
+    "Upload PDF or TXT Files",
     type=["pdf", "txt"],
     accept_multiple_files=True
 )
@@ -65,6 +77,18 @@ if st.sidebar.button("🗑 Clear Chat"):
     st.session_state.chat = []
 
 # --------------------------------------------------
+# LANGUAGE MAP
+# --------------------------------------------------
+
+LANG_MAP = {
+    "English": "English",
+    "Tamil": "Tamil",
+    "Hindi": "Hindi",
+    "Spanish": "Spanish",
+    "French": "French"
+}
+
+# --------------------------------------------------
 # SESSION
 # --------------------------------------------------
 
@@ -72,7 +96,7 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # --------------------------------------------------
-# GEMINI MODEL
+# GEMINI
 # --------------------------------------------------
 
 @st.cache_resource
@@ -81,7 +105,7 @@ def get_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=st.secrets["GOOGLE_API_KEY"],
-        temperature=0.3
+        temperature=0.2
     )
 
 # --------------------------------------------------
@@ -92,7 +116,7 @@ def get_llm():
 def get_embeddings():
 
     return HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
+        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     )
 
 # --------------------------------------------------
@@ -101,7 +125,7 @@ def get_embeddings():
 
 def load_documents(files):
 
-    texts = []
+    all_docs = []
 
     for file in files:
 
@@ -112,38 +136,53 @@ def load_documents(files):
             tmp.write(file.read())
             path = tmp.name
 
-        if file.name.endswith(".pdf"):
+        try:
 
-            loader = PyPDFLoader(path)
+            if file.name.endswith(".pdf"):
+                loader = PyPDFLoader(path)
 
-        else:
+            else:
+                loader = TextLoader(
+                    path,
+                    encoding="utf-8"
+                )
 
-            loader = TextLoader(path)
+            docs = loader.load()
 
-        docs = loader.load()
+            for doc in docs:
 
-        texts.extend(
-            [doc.page_content for doc in docs]
-        )
+                doc.metadata["source"] = file.name
 
-    return texts
+            all_docs.extend(docs)
+
+        except Exception as e:
+
+            st.error(
+                f"Error loading {file.name}: {e}"
+            )
+
+    return all_docs
 
 # --------------------------------------------------
 # VECTOR STORE
 # --------------------------------------------------
 
 @st.cache_resource
-def build_vectorstore(texts):
+def build_vectorstore(_documents):
 
-    docs = [
-        Document(page_content=text)
-        for text in texts
-    ]
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200
+    )
+
+    split_docs = splitter.split_documents(
+        _documents
+    )
 
     embeddings = get_embeddings()
 
     vectorstore = FAISS.from_documents(
-        docs,
+        split_docs,
         embeddings
     )
 
@@ -155,12 +194,10 @@ def build_vectorstore(texts):
 
 def retrieve_docs(query, vectorstore):
 
-    docs = vectorstore.similarity_search(
+    return vectorstore.similarity_search_with_score(
         query,
-        k=5
+        k=8
     )
-
-    return docs
 
 # --------------------------------------------------
 # PROMPT
@@ -168,14 +205,20 @@ def retrieve_docs(query, vectorstore):
 
 prompt = PromptTemplate.from_template(
 """
-You are an AI assistant.
+You are ChatDocAI.
 
-Answer ONLY from the provided context.
+Answer ONLY using the provided context.
 
-If the answer is not present in the context,
-reply:
+Rules:
 
-'I could not find this information in the uploaded documents.'
+1. Use context only.
+2. If partial information exists, answer with available information.
+3. Translate the answer into {language}.
+4. Do not invent facts.
+5. If absolutely no information exists,
+respond:
+
+"I could not find this information in the uploaded documents."
 
 Context:
 {context}
@@ -183,7 +226,7 @@ Context:
 Question:
 {question}
 
-Answer in {language}.
+Answer:
 """
 )
 
@@ -195,9 +238,13 @@ parser = StrOutputParser()
 
 if uploaded_files:
 
-    texts = load_documents(uploaded_files)
+    documents = load_documents(
+        uploaded_files
+    )
 
-    vectorstore = build_vectorstore(texts)
+    vectorstore = build_vectorstore(
+        documents
+    )
 
     llm = get_llm()
 
@@ -205,9 +252,9 @@ if uploaded_files:
         "💬 Ask your question..."
     )
 
-    # ------------------------------------------
+    # ----------------------------------------------
     # CHAT
-    # ------------------------------------------
+    # ----------------------------------------------
 
     if query:
 
@@ -219,13 +266,16 @@ if uploaded_files:
             "🤖 Thinking..."
         ):
 
-            docs = retrieve_docs(
+            retrieved_docs = retrieve_docs(
                 query,
                 vectorstore
             )
 
             context = "\n\n".join(
-                [d.page_content for d in docs]
+                [
+                    doc.page_content
+                    for doc, score in retrieved_docs
+                ]
             )
 
             chain = (
@@ -240,7 +290,9 @@ if uploaded_files:
                     {
                         "context": context,
                         "question": query,
-                        "language": language
+                        "language": LANG_MAP[
+                            language
+                        ]
                     }
                 )
 
@@ -254,13 +306,13 @@ if uploaded_files:
             (
                 "ai",
                 answer,
-                docs
+                retrieved_docs
             )
         )
 
-    # ------------------------------------------
+    # ----------------------------------------------
     # QUIZ GENERATOR
-    # ------------------------------------------
+    # ----------------------------------------------
 
     if generate_quiz:
 
@@ -274,7 +326,10 @@ if uploaded_files:
             )
 
             context = "\n\n".join(
-                [d.page_content for d in docs]
+                [
+                    doc.page_content
+                    for doc, score in docs
+                ]
             )
 
             quiz_prompt = PromptTemplate.from_template(
@@ -329,9 +384,9 @@ Question 2
             )
         )
 
-    # ------------------------------------------
+    # ----------------------------------------------
     # DISPLAY CHAT
-    # ------------------------------------------
+    # ----------------------------------------------
 
     for msg in st.session_state.chat:
 
@@ -355,12 +410,27 @@ Question 2
                         "📄 Source Context"
                     ):
 
-                        for d in msg[2]:
+                        for doc, score in msg[2]:
+
+                            st.markdown(
+                                f"**Source:** "
+                                f"{doc.metadata.get('source','Unknown')}"
+                            )
+
+                            st.markdown(
+                                f"**Similarity Score:** "
+                                f"{score:.4f}"
+                            )
 
                             st.write(
-                                d.page_content[:500]
-                                + "..."
+                                doc.page_content[:500]
                             )
+
+                            st.divider()
+
+# --------------------------------------------------
+# EMPTY STATE
+# --------------------------------------------------
 
 else:
 
