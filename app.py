@@ -103,7 +103,7 @@ if "chat" not in st.session_state:
 def get_llm():
 
     return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="Gemini 2.5 Pro",
         google_api_key=st.secrets["GOOGLE_API_KEY"],
         temperature=0.2
     )
